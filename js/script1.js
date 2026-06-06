@@ -314,7 +314,7 @@ function renderFStudents() {
   list.innerHTML = filtered.map(s => `
     <div class="row">
       <div><strong>${s["Full Name"]}</strong><br><small>Table ${s["Table No"]}</small></div>
-      <div>${getStudentCredits(s["Student ID"], week)} LC</div>
+      <div>${getStudentCredits(s["Student ID"])} LC</div>
     </div>
   `).join('');
 }
@@ -322,9 +322,9 @@ function renderFStudents() {
 // ═══════════════════════════════════════════
 // CREDIT CALCULATION
 // ═══════════════════════════════════════════
-function getStudentCredits(studentId, week) {
+function getStudentCredits(studentId) {
   return APP.credits
-    .filter(c => String(c["Student ID"]) === String(studentId) && (!week || String(c["Week No"]) === String(week)))
+    .filter(c => String(c["Student ID"]) === String(studentId))
     .reduce((sum, c) => sum + Number(c["Credits Added"] || 0), 0);
 }
 
@@ -484,7 +484,7 @@ function renderATables() {
     return;
   }
   grid.innerHTML = tables.map(t => {
-    const totalLC = getTableCredits(t, week);
+    const totalLC = getTableCredits(t);
     return `
       <div class="card" style="padding:14px;cursor:pointer" onclick="showTableDetail('${t}')">
         <div style="font-family:var(--font-head);font-size:18px;font-weight:700">Table ${t}</div>
@@ -564,9 +564,9 @@ async function confirmDropStudentFromTable(studentId, studentName) {
 }
 
 // Get total LC credits for a whole table — table-level only (studentId is blank)
-function getTableCredits(tableNo, week) {
+function getTableCredits(tableNo) {
   return APP.credits
-    .filter(c => String(c["Table No"]) === String(tableNo) && !c["Student ID"] && (!week || String(c["Week No"]) === String(week)))
+    .filter(c => String(c["Table No"]) === String(tableNo) && !c["Student ID"])
     .reduce((sum, c) => sum + Number(c["Credits Added"] || 0), 0);
 }
 
