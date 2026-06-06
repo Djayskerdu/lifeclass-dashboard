@@ -21,6 +21,140 @@
 <div id="toast"></div>
 <div id="app">
 
+<!-- DESKTOP SIDEBAR (hidden on mobile via CSS) -->
+<div id="desktop-sidebar">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-dot">
+      <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+    </div>
+    <div class="sidebar-logo-name">LIFECLASS</div>
+    <div class="sidebar-logo-sub">Church Equipping Class</div>
+  </div>
+
+  <!-- Portal nav (shown when not logged in) -->
+  <div id="sidebar-portal-nav" class="sidebar-nav">
+    <div class="sidebar-section-label">Portals</div>
+    <button class="sidebar-btn" onclick="go('s-faculty-login')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Faculty & Staff
+    </button>
+    <button class="sidebar-btn" onclick="go('s-admin-login')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Admin
+    </button>
+    <button class="sidebar-btn" onclick="go('s-record-login')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Record Keeper
+    </button>
+  </div>
+
+  <!-- Faculty nav -->
+  <div id="sidebar-faculty-nav" class="sidebar-nav" style="display:none">
+    <div class="sidebar-section-label">Faculty</div>
+    <button class="sidebar-btn" onclick="go('s-faculty-home')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Home
+    </button>
+    <button class="sidebar-btn" onclick="go('s-f-lessons')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      Lessons
+    </button>
+    <button class="sidebar-btn" onclick="go('s-f-students')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Students
+    </button>
+    <button class="sidebar-btn" onclick="go('s-f-payment')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      Payment
+    </button>
+    <button class="sidebar-btn" onclick="go('s-f-credits')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      Credits
+    </button>
+    <button class="sidebar-btn" onclick="go('s-add-credit')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      Add Credits
+    </button>
+  </div>
+
+  <!-- Admin nav -->
+  <div id="sidebar-admin-nav" class="sidebar-nav" style="display:none">
+    <div class="sidebar-section-label">Admin</div>
+    <button class="sidebar-btn" onclick="go('s-admin-home')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Home
+    </button>
+    <button class="sidebar-btn" onclick="go('s-a-student-att')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      Attendance
+    </button>
+    <button class="sidebar-btn" onclick="go('s-a-tables')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+      Tables
+    </button>
+    <button class="sidebar-btn" onclick="go('s-a-leaderboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="18 20 18 10"/><polyline points="12 20 12 4"/><polyline points="6 20 6 14"/></svg>
+      Leaderboard
+    </button>
+    <button class="sidebar-btn" onclick="go('s-a-makeup')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Make-up
+    </button>
+    <button class="sidebar-btn" onclick="go('s-a-dropped')" id="sb-dropped-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>
+      Dropped
+      <span id="sb-dropped-badge" class="sb-badge" style="display:none"></span>
+    </button>
+  </div>
+
+  <!-- Record nav -->
+  <div id="sidebar-record-nav" class="sidebar-nav" style="display:none">
+    <div class="sidebar-section-label">Record</div>
+    <button class="sidebar-btn" onclick="go('s-record-home')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Home
+    </button>
+    <button class="sidebar-btn" onclick="go('s-r-qr')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      QR Scan
+    </button>
+    <button class="sidebar-btn" onclick="switchAttTab('students');go('s-r-attendance')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      Attendance
+    </button>
+    <button class="sidebar-btn" onclick="go('s-r-payment')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      Payment
+    </button>
+    <button class="sidebar-btn" onclick="go('s-r-balances')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      Balances
+    </button>
+    <button class="sidebar-btn" onclick="go('s-a-leaderboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="18 20 18 10"/><polyline points="12 20 12 4"/><polyline points="6 20 6 14"/></svg>
+      Leaderboard
+    </button>
+  </div>
+
+  <div class="sidebar-bottom" id="sidebar-bottom" style="display:none">
+    <div class="sidebar-user">
+      <div class="sidebar-user-av" id="sidebar-user-av">–</div>
+      <div>
+        <div class="sidebar-user-name" id="sidebar-user-name">–</div>
+        <div class="sidebar-user-role" id="sidebar-user-role">–</div>
+      </div>
+    </div>
+    <button class="sidebar-logout-btn" onclick="logout()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      Logout
+    </button>
+  </div>
+</div>
+<!-- /DESKTOP SIDEBAR -->
+
+<!-- DESKTOP MAIN CONTENT WRAPPER -->
+<div id="desktop-main">
+
 <!-- INSTALL BANNER -->
 <div id="install-banner">
   <div class="ib-inner">
@@ -795,6 +929,7 @@
   </div>
 </div>
 
+</div><!-- /desktop-main -->
 </div><!-- /app -->
 
 
@@ -804,5 +939,308 @@
 
 <script src="js/script1.js"></script>
 <script src="js/script2.js"></script>
+
+<!-- ══════════════════════════════════════════
+     ANDROID INSTALL BANNER (bottom bar)
+══════════════════════════════════════════ -->
+<div id="pwa-install-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:99999;padding:14px 16px;background:#1a3a5c;color:#fff;box-shadow:0 -4px 20px rgba(0,0,0,0.3);align-items:center;gap:12px;max-width:480px;margin:0 auto">
+  <img src="icon-192.png" style="width:40px;height:40px;border-radius:10px;flex-shrink:0">
+  <div style="flex:1;min-width:0">
+    <div style="font-weight:700;font-size:14px">Install LIFECLASS</div>
+    <div style="font-size:12px;opacity:0.75;margin-top:2px">Add to Home Screen for the full app experience</div>
+  </div>
+  <button id="pwa-install-btn" style="background:#2d7a4f;color:#fff;border:none;border-radius:10px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0">Install</button>
+  <button onclick="document.getElementById('pwa-install-banner').style.display='none'" style="background:none;border:none;color:rgba(255,255,255,0.6);font-size:20px;cursor:pointer;padding:4px;flex-shrink:0;line-height:1">✕</button>
+</div>
+
+<!-- ══════════════════════════════════════════
+     iOS INSTALL MODAL (step-by-step guide)
+══════════════════════════════════════════ -->
+<div id="ios-install-modal" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.6);align-items:flex-end;justify-content:center;padding:0">
+  <div style="background:#fff;border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:0 0 32px;box-shadow:0 -8px 40px rgba(0,0,0,0.25);animation:slideUp 0.3s ease">
+    <!-- Handle bar -->
+    <div style="display:flex;justify-content:center;padding:12px 0 4px">
+      <div style="width:40px;height:4px;background:#e0e0e0;border-radius:4px"></div>
+    </div>
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px 16px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <img src="icon-192.png" style="width:48px;height:48px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.15)">
+        <div>
+          <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:#1a1a2e">Install LIFECLASS</div>
+          <div style="font-size:12px;color:#9aa3b0;margin-top:1px">Add to your Home Screen</div>
+        </div>
+      </div>
+      <button onclick="closeIOSModal()" style="background:#f0f2f5;border:none;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer;color:#9aa3b0;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>
+    </div>
+
+    <!-- Divider -->
+    <div style="height:1px;background:#f0f2f5;margin:0 20px"></div>
+
+    <!-- Steps -->
+    <div style="padding:20px 20px 0">
+      <div style="font-size:12px;font-weight:700;color:#9aa3b0;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:14px">Follow these steps</div>
+
+      <!-- Step 1 -->
+      <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:18px">
+        <div style="width:32px;height:32px;border-radius:50%;background:#1a3a5c;color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div>
+        <div style="flex:1;padding-top:4px">
+          <div style="font-size:14px;font-weight:600;color:#1a1a2e;margin-bottom:2px">Tap the Share button</div>
+          <div style="font-size:12px;color:#9aa3b0">At the bottom of your Safari browser</div>
+          <!-- Share icon illustration -->
+          <div style="margin-top:10px;background:#f0f2f5;border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:10px">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1a3a5c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:#1a3a5c">Share</div>
+              <div style="font-size:11px;color:#9aa3b0">Looks like this in Safari</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:18px">
+        <div style="width:32px;height:32px;border-radius:50%;background:#1a3a5c;color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div>
+        <div style="flex:1;padding-top:4px">
+          <div style="font-size:14px;font-weight:600;color:#1a1a2e;margin-bottom:2px">Scroll down and tap</div>
+          <div style="font-size:12px;color:#9aa3b0">Find this option in the share sheet</div>
+          <!-- Add to Home Screen illustration -->
+          <div style="margin-top:10px;background:#f0f2f5;border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:10px">
+            <div style="width:36px;height:36px;border-radius:8px;background:#fff;border:1.5px solid #dde;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a3a5c" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            </div>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:#1a3a5c">Add to Home Screen</div>
+              <div style="font-size:11px;color:#9aa3b0">Tap this in the share menu</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div style="display:flex;align-items:flex-start;gap:14px">
+        <div style="width:32px;height:32px;border-radius:50%;background:#2d6a4f;color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div>
+        <div style="flex:1;padding-top:4px">
+          <div style="font-size:14px;font-weight:600;color:#1a1a2e;margin-bottom:2px">Tap <strong style="color:#2d6a4f">Add</strong> to confirm</div>
+          <div style="font-size:12px;color:#9aa3b0">LIFECLASS will appear on your Home Screen</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Note -->
+    <div style="margin:20px 20px 0;background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:10px 14px;display:flex;gap:8px;align-items:flex-start">
+      <span style="font-size:16px;flex-shrink:0">⚠️</span>
+      <div style="font-size:12px;color:#92400e">Make sure you're using <strong>Safari</strong> — this won't work in Chrome or other browsers on iPhone.</div>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+</style>
+
+<!-- ══════════════════════════════════════════
+     iOS INSTALL BANNER (bottom bar for Safari)
+══════════════════════════════════════════ -->
+<div id="ios-install-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:99998;padding:12px 16px;background:#1a3a5c;color:#fff;box-shadow:0 -4px 20px rgba(0,0,0,0.3);align-items:center;gap:12px;max-width:480px;margin:0 auto">
+  <img src="icon-192.png" style="width:38px;height:38px;border-radius:9px;flex-shrink:0">
+  <div style="flex:1;min-width:0">
+    <div style="font-weight:700;font-size:13px">Install LIFECLASS on iPhone</div>
+    <div style="font-size:11px;opacity:0.7;margin-top:1px">Tap to see how →</div>
+  </div>
+  <button onclick="showIOSModal()" style="background:#2d7a4f;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">How to Install</button>
+  <button onclick="dismissIOSBanner()" style="background:none;border:none;color:rgba(255,255,255,0.5);font-size:20px;cursor:pointer;padding:2px;flex-shrink:0;line-height:1">✕</button>
+</div>
+
+<script>
+// ── Android / Chrome install prompt ──────────────────
+let _deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _deferredPrompt = e;
+  const banner = document.getElementById('pwa-install-banner');
+  if (banner) banner.style.display = 'flex';
+});
+document.getElementById('pwa-install-btn')?.addEventListener('click', async () => {
+  if (!_deferredPrompt) return;
+  _deferredPrompt.prompt();
+  const { outcome } = await _deferredPrompt.userChoice;
+  _deferredPrompt = null;
+  document.getElementById('pwa-install-banner').style.display = 'none';
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('pwa-install-banner').style.display = 'none';
+  _deferredPrompt = null;
+});
+
+// ── iOS / Safari install guide ────────────────────────
+function isIOSSafari() {
+  const ua = window.navigator.userAgent;
+  const isIOS = /iphone|ipad|ipod/i.test(ua);
+  // Safari on iOS doesn't have 'CriOS' (Chrome) or 'FxiOS' (Firefox)
+  const isSafari = /safari/i.test(ua) && !/crios|fxios|opios|mercury/i.test(ua);
+  // Not already installed as standalone
+  const isStandalone = window.navigator.standalone === true;
+  return isIOS && isSafari && !isStandalone;
+}
+
+function showIOSModal() {
+  const modal = document.getElementById('ios-install-modal');
+  if (modal) modal.style.display = 'flex';
+}
+function closeIOSModal() {
+  const modal = document.getElementById('ios-install-modal');
+  if (modal) modal.style.display = 'none';
+}
+function dismissIOSBanner() {
+  const banner = document.getElementById('ios-install-banner');
+  if (banner) banner.style.display = 'none';
+  sessionStorage.setItem('ios-banner-dismissed', '1');
+}
+
+// Close iOS modal when tapping backdrop
+document.getElementById('ios-install-modal')?.addEventListener('click', function(e) {
+  if (e.target === this) closeIOSModal();
+});
+
+// Show iOS banner after a short delay (only once per session)
+window.addEventListener('load', () => {
+  if (isIOSSafari() && !sessionStorage.getItem('ios-banner-dismissed')) {
+    setTimeout(() => {
+      const banner = document.getElementById('ios-install-banner');
+      if (banner) banner.style.display = 'flex';
+    }, 2500);
+  }
+});
+</script>
+
+<script>
+// ═══════════════════════════════════════════
+// DESKTOP SIDEBAR CONTROLLER
+// ═══════════════════════════════════════════
+function updateSidebar() {
+  var faculty = APP.currentFaculty;
+  var portalScreens = ['s-portal','s-faculty-login','s-admin-login','s-record-login'];
+  var isPortalScreen = portalScreens.includes(APP.currentScreen);
+  var appEl = document.getElementById('app');
+  var sidebarEl = document.getElementById('desktop-sidebar');
+
+  // KEY FIX: toggle has-sidebar class on #app
+  // Portal/login = no sidebar, plain flex layout
+  // Logged in = grid layout with sidebar
+  if (appEl) {
+    appEl.classList.toggle('has-sidebar', !isPortalScreen && !!faculty);
+  }
+
+  if (!faculty) {
+    if (sidebarEl) sidebarEl.style.display = 'none';
+    return;
+  }
+
+  if (sidebarEl) sidebarEl.style.display = isPortalScreen ? 'none' : '';
+
+  // Update sidebar user info
+  var userName = document.getElementById('sidebar-user-name');
+  var userRole = document.getElementById('sidebar-user-role');
+  var userAv   = document.getElementById('sidebar-user-av');
+  var sidebarBot = document.getElementById('sidebar-bottom');
+  if (userName) userName.textContent = faculty['Full Name'] || '–';
+  if (userRole) userRole.textContent = faculty['Role'] || '–';
+  if (userAv)   userAv.textContent   = (faculty['Full Name'] || '?')[0].toUpperCase();
+  if (sidebarBot) sidebarBot.style.display = isPortalScreen ? 'none' : 'block';
+
+  // Show correct nav
+  ['sidebar-portal-nav','sidebar-faculty-nav','sidebar-admin-nav','sidebar-record-nav']
+    .forEach(id => { var el = document.getElementById(id); if(el) el.style.display = 'none'; });
+
+  var role = typeof getRoleType === 'function' ? getRoleType(faculty['Role']) : 'faculty';
+  var navId = role === 'admin' ? 'sidebar-admin-nav'
+            : role === 'record' ? 'sidebar-record-nav'
+            : 'sidebar-faculty-nav';
+  var nav = document.getElementById(navId);
+  if (nav && !isPortalScreen) { nav.style.display = 'flex'; nav.style.flexDirection = 'column'; }
+
+  // Dropped badge
+  var sbBadge = document.getElementById('sb-dropped-badge');
+  if (sbBadge) {
+    var count = APP.students.filter(function(s){ return (s['Status']||'').toLowerCase() === 'dropped'; }).length;
+    sbBadge.textContent = count;
+    sbBadge.style.display = count > 0 ? '' : 'none';
+  }
+
+  // Active sidebar button highlight
+  document.querySelectorAll('.sidebar-btn').forEach(function(b){ b.classList.remove('active'); });
+  var screenNavMap = {
+    's-faculty-home':'sidebar-faculty-nav','s-f-lessons':'sidebar-faculty-nav',
+    's-f-students':'sidebar-faculty-nav','s-f-payment':'sidebar-faculty-nav',
+    's-f-credits':'sidebar-faculty-nav','s-add-credit':'sidebar-faculty-nav',
+    's-admin-home':'sidebar-admin-nav','s-a-student-att':'sidebar-admin-nav',
+    's-a-tables':'sidebar-admin-nav','s-a-table-detail':'sidebar-admin-nav',
+    's-a-leaderboard':'sidebar-admin-nav','s-a-makeup':'sidebar-admin-nav',
+    's-a-dropped':'sidebar-admin-nav','s-record-home':'sidebar-record-nav',
+    's-r-qr':'sidebar-record-nav','s-r-attendance':'sidebar-record-nav',
+    's-r-payment':'sidebar-record-nav','s-r-balances':'sidebar-record-nav'
+  };
+  var activeNav = document.getElementById(screenNavMap[APP.currentScreen]);
+  if (activeNav) {
+    activeNav.querySelectorAll('.sidebar-btn').forEach(function(b){
+      if (b.getAttribute('onclick') && b.getAttribute('onclick').includes(APP.currentScreen))
+        b.classList.add('active');
+    });
+  }
+}
+
+// Patch go() to also update sidebar
+var _origGo = go;
+window.go = function(id) { _origGo(id); updateSidebar(); };
+
+// Patch logout to reset sidebar
+var _origLogout = logout;
+window.logout = function() { _origLogout(); updateSidebar(); };
+
+document.addEventListener('DOMContentLoaded', function(){ updateSidebar(); });
+</script>
+
+
+<script>
+// ══════════════════════════════════════════
+// RIPPLE EFFECT
+// ══════════════════════════════════════════
+function createRipple(event) {
+  const el = event.currentTarget;
+  const ripple = document.createElement('span');
+  ripple.classList.add('ripple-effect');
+  const rect = el.getBoundingClientRect();
+  const x = (event.clientX ?? rect.left + rect.width / 2) - rect.left;
+  const y = (event.clientY ?? rect.top + rect.height / 2) - rect.top;
+  ripple.style.left = x + 'px';
+  ripple.style.top  = y + 'px';
+  const bg = window.getComputedStyle(el).backgroundColor;
+  if (bg && (bg.includes('255, 255, 255') || bg === 'rgba(0, 0, 0, 0)')) {
+    ripple.style.background = 'rgba(0,0,0,0.1)';
+  }
+  el.appendChild(ripple);
+  ripple.addEventListener('animationend', () => ripple.remove());
+}
+function attachRipples() {
+  const sel = '.portal-btn,.menu-item,.btn-primary,.sidebar-btn,.topbar-back,.ni,.reason-btn,.week-btn';
+  document.querySelectorAll(sel).forEach(el => {
+    if (!el.dataset.ripple) {
+      el.dataset.ripple = '1';
+      el.addEventListener('click', createRipple);
+    }
+  });
+}
+document.addEventListener('DOMContentLoaded', () => {
+  attachRipples();
+  new MutationObserver(attachRipples).observe(
+    document.getElementById('app'), { childList: true, subtree: true }
+  );
+});
+</script>
+
 </body>
 </html>
