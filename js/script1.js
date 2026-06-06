@@ -743,6 +743,9 @@ function closeDropStudentModal() {
 let html5QrScanner = null;
 let qrScanCooldown = false;
 
+// ═══════════════════════════════════════════
+// QR TAB SWITCHER
+// ═══════════════════════════════════════════
 function switchQRTab(tab) {
   const scanPanel = document.getElementById('qr-panel-scan');
   const genPanel  = document.getElementById('qr-panel-gen');
@@ -761,6 +764,20 @@ function switchQRTab(tab) {
   }
 }
 
+// ═══════════════════════════════════════════
+// QR SCANNER — with live status indicator
+// ═══════════════════════════════════════════
+function setScanStatus(state, msg) {
+  // state: 'idle' | 'scanning' | 'success' | 'error'
+  const bar = document.getElementById('qr-status-bar');
+  if (!bar) return;
+  const colors = { idle:'#6b7280', scanning:'#7c3aed', success:'#2d6a4f', error:'#e53935' };
+  const icons  = { idle:'📷', scanning:'🔍', success:'✅', error:'⚠️' };
+  bar.style.display = msg ? '' : 'none';
+  bar.style.background = colors[state] || colors.idle;
+  bar.innerHTML = `<span style="font-size:15px">${icons[state]||''}</span> <span>${msg}</span>`;
+}
+
 function startQRCamera() {
   const placeholder = document.getElementById('qr-reader-placeholder');
   const startBtn    = document.getElementById('qr-start-btn');
@@ -770,13 +787,21 @@ function startQRCamera() {
   if (stopBtn)     stopBtn.style.display  = '';
   if (html5QrScanner) { try { html5QrScanner.stop(); } catch(e){} html5QrScanner = null; }
 
+  setScanStatus('scanning', 'Camera starting… point at a LIFECLASS QR code');
+
   html5QrScanner = new Html5Qrcode('qr-reader');
   html5QrScanner.start(
     { facingMode: 'environment' },
-    { fps: 10, qrbox: { width: 220, height: 220 } },
+    { fps: 15, qrbox: { width: 230, height: 230 }, aspectRatio: 1.0 },
     onQRCodeScanned,
-    () => {}
-  ).catch(err => {
+    (errorMsg) => {
+      // Called every frame when no QR found — only update if not in cooldown
+      if (!qrScanCooldown) setScanStatus('scanning', 'Scanning… point camera at QR code');
+    }
+  ).then(() => {
+    setScanStatus('scanning', 'Camera ready — point at a LIFECLASS QR code');
+  }).catch(err => {
+    setScanStatus('error', 'Camera error: ' + err);
     showToast('Camera error: ' + err);
     if (placeholder) placeholder.style.display = '';
     if (startBtn)    startBtn.style.display = '';
@@ -794,103 +819,111 @@ function stopQRCamera() {
   if (startBtn)    startBtn.style.display = '';
   if (stopBtn)     stopBtn.style.display  = 'none';
   if (reader)      reader.innerHTML = '';
+  setScanStatus('idle', '');
 }
 
 async function onQRCodeScanned(decodedText) {
   if (qrScanCooldown) return;
   qrScanCooldown = true;
-  setTimeout(() => { qrScanCooldown = false; }, 3000);
+
+  // Flash green on the scanner box
+  const scanBox = document.querySelector('.qr-scan-box');
+  if (scanBox) {
+    scanBox.style.outline = '4px solid #4ade80';
+    setTimeout(() => { scanBox.style.outline = ''; }, 600);
+  }
 
   if (!decodedText.startsWith(QR_PREFIX)) {
+    setScanStatus('error', 'Invalid QR — only LIFECLASS QR codes accepted');
     const resultEl = document.getElementById('qr-result');
     if (resultEl) resultEl.innerHTML = `
-      <div class="card" style="background:#fff3cd;padding:14px 16px;border-left:4px solid #e8a020">
-        ⚠️ <strong>Invalid QR Code</strong> — only LIFECLASS QR codes are accepted.
-      </div>
-    `;
+      <div style="background:#fff3cd;padding:14px 16px;border-radius:12px;border-left:4px solid #e8a020;margin-top:8px;display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:20px">⚠️</span>
+        <div><strong>Invalid QR Code</strong><br><span style="font-size:12px;color:#666">Only LIFECLASS QR codes are accepted. Try the QR Generator tab to create one.</span></div>
+      </div>`;
     showToast('⚠️ Not a LIFECLASS QR code');
+    setTimeout(() => {
+      qrScanCooldown = false;
+      setScanStatus('scanning', 'Scanning… point camera at QR code');
+    }, 3000);
     return;
   }
 
   const personId = decodedText.slice(QR_PREFIX.length);
   const student  = APP.students.find(s => String(s['Student ID']) === String(personId));
-  if (student) { await scanQR(student['Student ID']); return; }
+  if (student) { await scanQR(student['Student ID']); setTimeout(() => { qrScanCooldown = false; setScanStatus('scanning','Ready — scan next'); }, 3000); return; }
   const faculty  = APP.faculty.find(f => String(f['Faculty ID']) === String(personId));
-  if (faculty)  { await scanFacultyQR(faculty['Faculty ID']); return; }
+  if (faculty)  { await scanFacultyQR(faculty['Faculty ID']); setTimeout(() => { qrScanCooldown = false; setScanStatus('scanning','Ready — scan next'); }, 3000); return; }
+
+  setScanStatus('error', 'QR not recognised — ID: ' + personId);
   showToast('QR not recognised: ' + personId);
+  setTimeout(() => { qrScanCooldown = false; setScanStatus('scanning','Scanning…'); }, 3000);
 }
 
 async function scanQR(id) {
   const student = APP.students.find(s => String(s['Student ID']) === String(id));
   if (!student) return;
+  setScanStatus('scanning', 'Saving attendance for ' + student['Full Name'] + '…');
 
   await apiPost({
-    action:     'addQRScan',
-    qrCode:     String(student['Student ID']),
-    personType: 'student',
-    personId:   student['Student ID'],
-    name:       student['Full Name'],
-    weekNo:     APP.currentWeek,
-    scanType:   'attendance'
+    action:'addQRScan', qrCode:String(student['Student ID']),
+    personType:'student', personId:student['Student ID'],
+    name:student['Full Name'], weekNo:APP.currentWeek, scanType:'attendance'
   });
-
   await apiPost({
-    action:        'addAttendance',
-    studentId:     student['Student ID'],
-    studentName:   student['Full Name'],
-    age:           student['Age']            || '',
-    gender:        student['Gender']         || '',
-    lgLeader:      student['LG Leader']      || '',
-    networkLeader: student['Network Leader'] || '',
-    tableNo:       student['Table No'],
-    weekNo:        APP.currentWeek,
-    status:        'Present',
-    remarks:       ''
+    action:'addAttendance', studentId:student['Student ID'],
+    studentName:student['Full Name'], age:student['Age']||'',
+    gender:student['Gender']||'', lgLeader:student['LG Leader']||'',
+    networkLeader:student['Network Leader']||'', tableNo:student['Table No'],
+    weekNo:APP.currentWeek, status:'Present', remarks:''
   });
 
+  setScanStatus('success', student['Full Name'] + ' marked PRESENT ✓');
   const resultEl = document.getElementById('qr-result');
   if (resultEl) resultEl.innerHTML = `
-    <div class="card success" style="background:#e8f5ee;padding:14px 16px;border-left:4px solid #2d6a4f">
-      ✅ <strong>${student['Full Name']}</strong> marked PRESENT — Week ${APP.currentWeek} (Synced)
-    </div>
-  `;
-  showToast(`✅ ${student['Full Name']} — Present`);
+    <div style="background:#e8f5ee;padding:14px 16px;border-radius:12px;border-left:4px solid #2d6a4f;margin-top:8px;display:flex;gap:10px;align-items:center">
+      <span style="font-size:28px">✅</span>
+      <div>
+        <div style="font-weight:700;font-size:15px;color:#1a3a2a">${student['Full Name']}</div>
+        <div style="font-size:12px;color:#2d6a4f">Marked <strong>PRESENT</strong> — Week ${APP.currentWeek} · Table ${student['Table No']}</div>
+        <div style="font-size:11px;color:#666;margin-top:2px">${new Date().toLocaleTimeString()}</div>
+      </div>
+    </div>`;
+  showToast('✅ ' + student['Full Name'] + ' — Present');
 }
 
 async function scanFacultyQR(id) {
   const faculty = APP.faculty.find(f => String(f['Faculty ID']) === String(id));
   if (!faculty) return;
+  setScanStatus('scanning', 'Saving attendance for ' + faculty['Full Name'] + '…');
 
   await apiPost({
-    action:     'addQRScan',
-    qrCode:     String(faculty['Faculty ID']),
-    personType: 'faculty',
-    personId:   faculty['Faculty ID'],
-    name:       faculty['Full Name'],
-    weekNo:     APP.currentWeek,
-    scanType:   'attendance'
+    action:'addQRScan', qrCode:String(faculty['Faculty ID']),
+    personType:'faculty', personId:faculty['Faculty ID'],
+    name:faculty['Full Name'], weekNo:APP.currentWeek, scanType:'attendance'
   });
-
   await apiPost({
-    action:      'addFacultyAttendance',
-    facultyId:   faculty['Faculty ID'],
-    facultyName: faculty['Full Name'],
-    role:        faculty['Role'] || '',
-    weekNo:      APP.currentWeek,
-    status:      'Present'
+    action:'addFacultyAttendance', facultyId:faculty['Faculty ID'],
+    facultyName:faculty['Full Name'], role:faculty['Role']||'',
+    weekNo:APP.currentWeek, status:'Present'
   });
 
+  setScanStatus('success', faculty['Full Name'] + ' (' + (faculty['Role']||'') + ') marked PRESENT ✓');
   const resultEl = document.getElementById('qr-result');
   if (resultEl) resultEl.innerHTML = `
-    <div class="card" style="background:#e8f5ee;padding:14px 16px;border-left:4px solid #2d6a4f">
-      ✅ <strong>${faculty['Full Name']}</strong> (${faculty['Role']}) marked PRESENT — Week ${APP.currentWeek}
-    </div>
-  `;
-  showToast(`✅ ${faculty['Full Name']} — Present`);
+    <div style="background:#e8f5ee;padding:14px 16px;border-radius:12px;border-left:4px solid #2d6a4f;margin-top:8px;display:flex;gap:10px;align-items:center">
+      <span style="font-size:28px">✅</span>
+      <div>
+        <div style="font-weight:700;font-size:15px;color:#1a3a2a">${faculty['Full Name']}</div>
+        <div style="font-size:12px;color:#2d6a4f"><strong>${faculty['Role']||'Faculty'}</strong> marked PRESENT — Week ${APP.currentWeek}</div>
+        <div style="font-size:11px;color:#666;margin-top:2px">${new Date().toLocaleTimeString()}</div>
+      </div>
+    </div>`;
+  showToast('✅ ' + faculty['Full Name'] + ' — Present');
 }
 
 // ═══════════════════════════════════════════
-// QR GENERATOR
+// QR GENERATOR — uses qrcode.js reliably via img tag
 // ═══════════════════════════════════════════
 let qrGenCurrentId   = null;
 let qrGenCurrentName = null;
@@ -902,30 +935,29 @@ function renderQRGenList() {
   if (!list) return;
 
   const items = type === 'student'
-    ? APP.students.filter(s => !search || s['Full Name'].toLowerCase().includes(search) || String(s['Student ID']).toLowerCase().includes(search))
-    : APP.faculty.filter(f  => !search || f['Full Name'].toLowerCase().includes(search) || String(f['Faculty ID']).toLowerCase().includes(search));
+    ? APP.students.filter(s => (s['Status']||'').toLowerCase() !== 'dropped' && (!search || s['Full Name'].toLowerCase().includes(search) || String(s['Student ID']).includes(search)))
+    : APP.faculty.filter(f  => !search || f['Full Name'].toLowerCase().includes(search) || String(f['Faculty ID']).includes(search));
 
   if (!items.length) {
-    list.innerHTML = '<p style="color:var(--gray);font-size:13px;text-align:center;padding:12px">No results found.</p>';
+    list.innerHTML = '<p style="color:var(--text3);font-size:13px;text-align:center;padding:20px">No results found.</p>';
     return;
   }
 
   list.innerHTML = items.map(item => {
     const id   = type === 'student' ? item['Student ID'] : item['Faculty ID'];
     const name = item['Full Name'];
-    const sub  = type === 'student' ? `${id} · Table ${item['Table No']}` : `${id} · ${item['Role']}`;
-    return `
-      <div onclick="openQRModal('${id}','${name.replace(/'/g,"\\'")}','${sub.replace(/'/g,"\\'")}',this)" style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:#f8f8f8;border-radius:10px;cursor:pointer;border:1.5px solid transparent" onmouseover="this.style.borderColor='var(--purple)'" onmouseout="this.style.borderColor='transparent'">
-        <div style="width:36px;height:36px;background:var(--purple);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:700;flex-shrink:0">
-          ${name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}
-        </div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:var(--text1)">${name}</div>
-          <div style="font-size:11px;color:var(--text3)">${sub}</div>
-        </div>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    const sub  = type === 'student' ? `ID: ${id} · Table ${item['Table No']}` : `ID: ${id} · ${item['Role']}`;
+    const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    return `<div onclick="openQRModal('${String(id).replace(/'/g,"\'")}','${name.replace(/'/g,"\'")}','${sub.replace(/'/g,"\'")}',this)"
+      style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:#f8f8f8;border-radius:10px;cursor:pointer;border:1.5px solid transparent;transition:border-color 0.15s"
+      onmouseover="this.style.borderColor='var(--purple)'" onmouseout="this.style.borderColor='transparent'">
+      <div style="width:38px;height:38px;background:var(--purple);border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:700;flex-shrink:0">${initials}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--text1)">${name}</div>
+        <div style="font-size:11px;color:var(--text3)">${sub}</div>
       </div>
-    `;
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    </div>`;
   }).join('');
 }
 
@@ -937,28 +969,66 @@ function openQRModal(id, name, sub) {
   document.getElementById('qrgen-modal-name').textContent = name;
   document.getElementById('qrgen-modal-id').textContent   = sub;
 
+  // Show loading state
   const canvas = document.getElementById('qrgen-canvas');
-  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  const qrWrap = document.getElementById('qrgen-img-wrap');
+
+  // Use qrcode library — render into a fresh temp div then grab the img/canvas
+  const tempDiv = document.createElement('div');
+  tempDiv.style.position = 'absolute';
+  tempDiv.style.visibility = 'hidden';
+  document.body.appendChild(tempDiv);
 
   const qrPayload = QR_PREFIX + String(id);
-  const tempDiv   = document.createElement('div');
+
+  // Clear previous
+  if (qrWrap) qrWrap.innerHTML = '<div style="color:#999;font-size:13px;padding:20px">Generating…</div>';
+
   new QRCode(tempDiv, {
     text: qrPayload,
-    width: 220, height: 220,
-    colorDark: '#1a3a5c', colorLight: '#ffffff',
+    width: 240, height: 240,
+    colorDark: '#1a3a5c',
+    colorLight: '#ffffff',
     correctLevel: QRCode.CorrectLevel.H
   });
+
   setTimeout(() => {
-    const generated = tempDiv.querySelector('canvas') || tempDiv.querySelector('img');
-    if (generated && generated.tagName === 'CANVAS') {
-      canvas.width = generated.width; canvas.height = generated.height;
-      canvas.getContext('2d').drawImage(generated, 0, 0);
-    } else if (generated && generated.tagName === 'IMG') {
-      const img = new Image();
-      img.onload = () => { canvas.width = img.width; canvas.height = img.height; canvas.getContext('2d').drawImage(img, 0, 0); };
-      img.src = generated.src;
+    // QRCode lib renders either canvas or img depending on browser
+    const generatedCanvas = tempDiv.querySelector('canvas');
+    const generatedImg    = tempDiv.querySelector('img');
+
+    if (qrWrap) {
+      if (generatedCanvas) {
+        // Copy to our display canvas
+        canvas.width  = generatedCanvas.width;
+        canvas.height = generatedCanvas.height;
+        canvas.getContext('2d').drawImage(generatedCanvas, 0, 0);
+        canvas.style.display = '';
+        qrWrap.innerHTML = '';
+        qrWrap.appendChild(canvas);
+      } else if (generatedImg) {
+        // Some browsers generate an img — use it directly
+        const img = document.createElement('img');
+        img.src = generatedImg.src;
+        img.style.cssText = 'width:240px;height:240px;border-radius:8px;display:block';
+        img.onload = () => {
+          // Also copy to canvas for download
+          canvas.width = 240; canvas.height = 240;
+          canvas.getContext('2d').drawImage(img, 0, 0, 240, 240);
+        };
+        qrWrap.innerHTML = '';
+        qrWrap.appendChild(img);
+      } else {
+        qrWrap.innerHTML = '<div style="color:#e53935;font-size:13px;padding:20px">Failed to generate QR. Refresh and try again.</div>';
+      }
     }
-  }, 100);
+
+    document.body.removeChild(tempDiv);
+
+    // Show payload for debugging
+    const payloadEl = document.getElementById('qrgen-payload');
+    if (payloadEl) payloadEl.textContent = 'Payload: ' + qrPayload;
+  }, 200);
 }
 
 function closeQRModal() {
@@ -968,7 +1038,7 @@ function closeQRModal() {
 function downloadQRCode() {
   const canvas = document.getElementById('qrgen-canvas');
   const link   = document.createElement('a');
-  link.download = `QR_${qrGenCurrentId}_${(qrGenCurrentName||'').replace(/\s+/g,'_')}.png`;
+  link.download = `LIFECLASS_QR_${qrGenCurrentId}_${(qrGenCurrentName||'').replace(/\s+/g,'_')}.png`;
   link.href = canvas.toDataURL('image/png');
   link.click();
 }

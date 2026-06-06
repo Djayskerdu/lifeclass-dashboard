@@ -801,6 +801,8 @@
         <button onclick="stopQRCamera()" id="qr-stop-btn" style="display:none;margin-top:12px;background:rgba(255,0,0,0.3);color:#fff;border:1.5px solid rgba(255,255,255,0.4);border-radius:8px;padding:8px 20px;font-size:13px;font-weight:600;cursor:pointer">⏹ Stop Camera</button>
         <div id="qr-time-rule" style="color:rgba(255,255,255,0.65);font-size:11px;margin-top:10px"></div>
       </div>
+      <!-- Live status bar -->
+      <div id="qr-status-bar" style="display:none;margin:10px 0;padding:10px 14px;border-radius:10px;color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;transition:background 0.3s"></div>
       <div id="qr-result"></div>
     </div>
 
@@ -826,9 +828,15 @@
         <div style="background:#fff;border-radius:16px;padding:24px;text-align:center;max-width:280px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,0.4)" onclick="event.stopPropagation()">
           <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:4px" id="qrgen-modal-name"></div>
           <div style="font-size:11px;color:var(--text3);margin-bottom:14px" id="qrgen-modal-id"></div>
-          <canvas id="qrgen-canvas" style="border-radius:8px;max-width:100%"></canvas>
+          <!-- QR image renders here -->
+          <div id="qrgen-img-wrap" style="min-height:240px;display:flex;align-items:center;justify-content:center">
+            <div style="color:#999;font-size:13px">Tap a person to generate their QR</div>
+          </div>
+          <!-- Hidden canvas used for download -->
+          <canvas id="qrgen-canvas" style="display:none"></canvas>
+          <div id="qrgen-payload" style="font-size:9px;color:#bbb;margin-top:6px;word-break:break-all;text-align:center"></div>
           <div style="margin-top:12px;display:flex;gap:8px;justify-content:center">
-            <button onclick="downloadQRCode()" style="background:var(--purple);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer">⬇ Save</button>
+            <button onclick="downloadQRCode()" style="background:var(--purple);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer">⬇ Save PNG</button>
             <button onclick="closeQRModal()" style="background:#f0f0f0;color:var(--text2);border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer">Close</button>
           </div>
         </div>
