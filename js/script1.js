@@ -302,6 +302,7 @@ function renderFStudents() {
   const list = document.getElementById('f-students-list');
   if (!list) return;
   const tableNo = APP.currentFaculty?.["Table Assigned"] || "";
+  const week = document.getElementById('f-week-filter')?.value || APP.currentWeek;
   const filtered = APP.students.filter(s =>
     String(s["Table No"]) === String(tableNo) &&
     (s["Status"] || "Active").toLowerCase() !== "dropped"
@@ -313,7 +314,7 @@ function renderFStudents() {
   list.innerHTML = filtered.map(s => `
     <div class="row">
       <div><strong>${s["Full Name"]}</strong><br><small>Table ${s["Table No"]}</small></div>
-      <div>${getStudentCredits(s["Student ID"])} LC</div>
+      <div>${getStudentCredits(s["Student ID"], week)} LC</div>
     </div>
   `).join('');
 }
@@ -321,9 +322,9 @@ function renderFStudents() {
 // ═══════════════════════════════════════════
 // CREDIT CALCULATION
 // ═══════════════════════════════════════════
-function getStudentCredits(studentId) {
+function getStudentCredits(studentId, week) {
   return APP.credits
-    .filter(c => String(c["Student ID"]) === String(studentId))
+    .filter(c => String(c["Student ID"]) === String(studentId) && (!week || String(c["Week No"]) === String(week)))
     .reduce((sum, c) => sum + Number(c["Credits Added"] || 0), 0);
 }
 
@@ -416,6 +417,7 @@ async function doAddCredit() {
       studentId: student["Student ID"],
       studentName: student["Full Name"],
       tableNo: student["Table No"],
+      weekNo: APP.currentWeek,
       reason,
       creditsAdded: amount,
       addedBy: APP.currentFaculty?.["Full Name"] || "Faculty"
@@ -482,7 +484,7 @@ function renderATables() {
     return;
   }
   grid.innerHTML = tables.map(t => {
-    const totalLC = getTableCredits(t);
+    const totalLC = getTableCredits(t, week);
     return `
       <div class="card" style="padding:14px;cursor:pointer" onclick="showTableDetail('${t}')">
         <div style="font-family:var(--font-head);font-size:18px;font-weight:700">Table ${t}</div>
@@ -562,9 +564,9 @@ async function confirmDropStudentFromTable(studentId, studentName) {
 }
 
 // Get total LC credits for a whole table — table-level only (studentId is blank)
-function getTableCredits(tableNo) {
+function getTableCredits(tableNo, week) {
   return APP.credits
-    .filter(c => String(c["Table No"]) === String(tableNo) && !c["Student ID"])
+    .filter(c => String(c["Table No"]) === String(tableNo) && !c["Student ID"] && (!week || String(c["Week No"]) === String(week)))
     .reduce((sum, c) => sum + Number(c["Credits Added"] || 0), 0);
 }
 
@@ -792,7 +794,7 @@ function startQRCamera() {
   html5QrScanner = new Html5Qrcode('qr-reader');
   html5QrScanner.start(
     { facingMode: 'environment' },
-    { fps: 30, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
+    { fps: 15, qrbox: { width: 230, height: 230 }, aspectRatio: 1.0 },
     onQRCodeScanned,
     (errorMsg) => {
       // Called every frame when no QR found — only update if not in cooldown
@@ -1099,6 +1101,7 @@ async function doTableAddCredit() {
       studentId:   '',
       studentName: `Table ${tableNo} (Group)`,
       tableNo:     tableNo,
+      weekNo:      APP.currentWeek,
       reason,
       creditsAdded: amount,
       addedBy:     APP.currentFaculty?.["Full Name"] || 'Admin'
