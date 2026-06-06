@@ -792,7 +792,7 @@ function startQRCamera() {
   html5QrScanner = new Html5Qrcode('qr-reader');
   html5QrScanner.start(
     { facingMode: 'environment' },
-    { fps: 15, qrbox: { width: 230, height: 230 }, aspectRatio: 1.0 },
+    { fps: 30, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
     onQRCodeScanned,
     (errorMsg) => {
       // Called every frame when no QR found — only update if not in cooldown
@@ -987,9 +987,9 @@ function openQRModal(id, name, sub) {
   new QRCode(tempDiv, {
     text: qrPayload,
     width: 240, height: 240,
-    colorDark: '#1a3a5c',
+    colorDark: '#000000',
     colorLight: '#ffffff',
-    correctLevel: QRCode.CorrectLevel.H
+    correctLevel: QRCode.CorrectLevel.M
   });
 
   setTimeout(() => {
