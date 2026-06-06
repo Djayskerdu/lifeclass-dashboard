@@ -804,6 +804,12 @@
       <!-- Live status bar -->
       <div id="qr-status-bar" style="display:none;margin:10px 0;padding:10px 14px;border-radius:10px;color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;transition:background 0.3s"></div>
       <div id="qr-result"></div>
+      <!-- Mark All Absent -->
+      <div style="margin-top:16px;padding:14px;background:#fdecea;border-radius:12px;border:1.5px solid #f5a8a8">
+        <div style="font-size:12px;font-weight:700;color:#b71c1c;margin-bottom:6px">⏰ After 2:30 PM — Close Attendance</div>
+        <div style="font-size:11px;color:#7a0000;margin-bottom:10px">Mark all students who haven't scanned yet as <strong>Absent</strong> for Week <span id="absent-week-label">—</span>.</div>
+        <button onclick="markAllAbsent()" style="width:100%;background:#e53935;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">❌ Mark Unscanned as Absent</button>
+      </div>
     </div>
 
     <!-- GENERATOR TAB -->
