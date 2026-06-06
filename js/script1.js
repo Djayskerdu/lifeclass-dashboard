@@ -93,8 +93,7 @@ async function loadAllData() {
     apiGet('lessonWeeks'),
     apiGet('qrscans'),
     apiGet('tableGuides'),
-    apiGet('settings'),
-    apiGet('makeups')
+    apiGet('settings')
   ]);
 
   APP.students          = safeData(results[0]);
@@ -106,7 +105,6 @@ async function loadAllData() {
   APP.lessons           = safeData(results[6]);
   APP.qrScans           = safeData(results[7]);
   APP.tableGuides       = safeData(results[8]);
-  APP.makeups           = safeData(results[10]);
 
   const settingsData = safeData(results[9]);
   if (settingsData.length) {
@@ -770,9 +768,6 @@ function switchQRTab(tab) {
   const genPanel  = document.getElementById('qr-panel-gen');
   const scanBtn   = document.getElementById('qr-tab-scan');
   const genBtn    = document.getElementById('qr-tab-gen');
-  // Update the week label in the absent box
-  const absentWeekLabel = document.getElementById('absent-week-label');
-  if (absentWeekLabel) absentWeekLabel.textContent = APP.currentWeek;
   if (tab === 'scan') {
     scanPanel.style.display = ''; genPanel.style.display = 'none';
     scanBtn.style.background = 'var(--purple)'; scanBtn.style.color = '#fff';
@@ -831,65 +826,6 @@ function startQRCamera() {
   });
 }
 
-async function markAllAbsent() {
-  const week = APP.currentWeek;
-
-  // Find all active students who have NO attendance record for this week
-  const alreadyScanned = new Set(
-    APP.attendance
-      .filter(a => String(a['Week No']) === String(week))
-      .map(a => String(a['Student ID']))
-  );
-  const unscanned = APP.students.filter(s =>
-    (s['Status'] || 'Active').toLowerCase() !== 'dropped' &&
-    !alreadyScanned.has(String(s['Student ID']))
-  );
-
-  if (!unscanned.length) {
-    showToast('✅ All students already have attendance for Week ' + week);
-    return;
-  }
-
-  const confirmed = confirm(
-    `Mark ${unscanned.length} unscanned student(s) as ABSENT for Week ${week}?\n\n` +
-    unscanned.map(s => '• ' + s['Full Name']).join('\n')
-  );
-  if (!confirmed) return;
-
-  const resultEl = document.getElementById('qr-result');
-  if (resultEl) resultEl.innerHTML = `<div style="padding:12px;color:#666;font-size:13px">Marking ${unscanned.length} student(s) absent…</div>`;
-
-  let done = 0;
-  for (const s of unscanned) {
-    try {
-      await apiPost({
-        action: 'addAttendance',
-        studentId: s['Student ID'],
-        studentName: s['Full Name'],
-        age: s['Age'] || '',
-        gender: s['Gender'] || '',
-        lgLeader: s['LG Leader'] || '',
-        networkLeader: s['Network Leader'] || '',
-        tableNo: s['Table No'],
-        weekNo: week,
-        status: 'Absent',
-        remarks: 'Auto-marked absent — did not scan'
-      });
-      done++;
-    } catch (e) {
-      console.error('Failed to mark absent:', s['Full Name'], e);
-    }
-  }
-
-  await loadAllData();
-  showToast(`❌ ${done} student(s) marked Absent for Week ${week}`);
-  if (resultEl) resultEl.innerHTML = `
-    <div style="background:#fdecea;padding:14px 16px;border-radius:12px;border-left:4px solid #e53935;margin-top:8px">
-      <div style="font-weight:700;font-size:14px;color:#7a0000">❌ ${done} Student(s) Marked Absent — Week ${week}</div>
-      <div style="margin-top:8px;font-size:12px;color:#b71c1c">${unscanned.map(s => s['Full Name']).join(', ')}</div>
-    </div>`;
-}
-
 function stopQRCamera() {
   if (html5QrScanner) { html5QrScanner.stop().catch(()=>{}); html5QrScanner = null; }
   const placeholder = document.getElementById('qr-reader-placeholder');
@@ -941,85 +877,10 @@ async function onQRCodeScanned(decodedText) {
   setTimeout(() => { qrScanCooldown = false; setScanStatus('scanning','Scanning…'); }, 3000);
 }
 
-// ── Attendance time rules ──────────────────────────────────────
-// Present : 1:00 PM – 1:44 PM  (13:00–13:44)
-// Late    : 1:45 PM – 2:29 PM  (13:45–14:29)
-// Absent  : 2:30 PM onwards    (14:30+)
-// 3 Lates accumulated → 3rd Late becomes Absent automatically
-// ──────────────────────────────────────────────────────────────
-function getScanAttendanceStatus() {
-  const now  = new Date();
-  const h    = now.getHours();
-  const m    = now.getMinutes();
-  const mins = h * 60 + m;            // minutes since midnight
-  const presentStart = 13 * 60;       // 1:00 PM
-  const presentEnd   = 13 * 60 + 44;  // 1:44 PM
-  const lateEnd      = 14 * 60 + 29;  // 2:29 PM
-  if (mins >= presentStart && mins <= presentEnd) return 'Present';
-  if (mins > presentEnd   && mins <= lateEnd)     return 'Late';
-  return 'Absent'; // 2:30 PM and beyond
-}
-
-function countStudentLates(studentId) {
-  return APP.attendance.filter(a =>
-    String(a['Student ID']) === String(studentId) &&
-    (a['Attendance Status'] || a['Status'] || '').toLowerCase() === 'late'
-  ).length;
-}
-
-// Count UNEXCUSED absences (absences with no approved makeup)
-function countUnexcusedAbsences(studentId) {
-  const absences = APP.attendance.filter(a =>
-    String(a['Student ID']) === String(studentId) &&
-    (a['Attendance Status'] || a['Status'] || '').toLowerCase() === 'absent'
-  );
-  // An absence is excused if there's an approved makeup for same student+week
-  const approvedMakeupWeeks = new Set(
-    (APP.makeups || [])
-      .filter(m => String(m['Student ID']) === String(studentId) && (m['Status'] || '').toLowerCase() === 'approved')
-      .map(m => String(m['Week No']))
-  );
-  return absences.filter(a => !approvedMakeupWeeks.has(String(a['Week No']))).length;
-}
-
-// Check if student should be auto-dropped (3 unexcused absences)
-async function checkAndAutoDropStudent(student) {
-  const unexcused = countUnexcusedAbsences(student['Student ID']);
-  if (unexcused >= 3 && (student['Status'] || 'Active').toLowerCase() !== 'dropped') {
-    // Auto-drop
-    try {
-      await apiPost({ action: 'updateStudentStatus', studentId: student['Student ID'], studentName: student['Full Name'], status: 'Dropped' });
-      student['Status'] = 'Dropped';
-    } catch(e) { console.error('Auto-drop failed:', e); }
-    return true;
-  }
-  return false;
-}
-
 async function scanQR(id) {
   const student = APP.students.find(s => String(s['Student ID']) === String(id));
   if (!student) return;
   setScanStatus('scanning', 'Saving attendance for ' + student['Full Name'] + '…');
-
-  const now        = new Date();
-  const scanTime   = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true });
-  let   status     = getScanAttendanceStatus();
-  let   remarks    = '';
-  let   alertType  = null; // 'warning-2nd' | 'alert-3rd'
-
-  // 3-lates-to-absent rule: count existing lates BEFORE this scan
-  if (status === 'Late') {
-    const prevLates = countStudentLates(student['Student ID']);
-    if (prevLates >= 2) {
-      // This is the 3rd late → convert to Absent
-      status    = 'Absent';
-      remarks   = '3 lates converted to Absent';
-      alertType = 'alert-3rd';
-    } else if (prevLates === 1) {
-      // This is the 2nd late → warn the team
-      alertType = 'warning-2nd';
-    }
-  }
 
   await apiPost({
     action:'addQRScan', qrCode:String(student['Student ID']),
@@ -1031,160 +892,21 @@ async function scanQR(id) {
     studentName:student['Full Name'], age:student['Age']||'',
     gender:student['Gender']||'', lgLeader:student['LG Leader']||'',
     networkLeader:student['Network Leader']||'', tableNo:student['Table No'],
-    weekNo:APP.currentWeek, status, remarks
+    weekNo:APP.currentWeek, status:'Present', remarks:''
   });
 
-  // Reload data so late/absent count is fresh
-  await loadAllData();
-
-  // Check 3-absences → auto-drop rule
-  let autoDropped = false;
-  if (status === 'Absent') {
-    autoDropped = await checkAndAutoDropStudent(student);
-  }
-
-  // Build result card
-  const isPresent = status === 'Present';
-  const isLate    = status === 'Late';
-  const isAbsent  = status === 'Absent';
-
-  const cardBg     = isPresent ? '#e8f5ee' : isLate ? '#fff5e0' : '#fdecea';
-  const cardBorder = isPresent ? '#2d6a4f' : isLate ? '#c9960c' : '#e53935';
-  const cardText   = isPresent ? '#1a3a2a' : isLate ? '#7a5a00' : '#7a0000';
-  const icon       = isPresent ? '✅' : isLate ? '🕐' : '❌';
-  const label      = isPresent ? 'PRESENT' : isLate ? 'LATE' : 'ABSENT';
-
-  setScanStatus('success', `${student['Full Name']} marked ${label} ✓`);
-  const resultEl = document.getElementById('qr-result');
-
-  // 2nd Late — warning card below the result
-  const warningHtml = alertType === 'warning-2nd' ? `
-    <div style="background:#fff3cd;border:2px solid #f0a500;border-radius:12px;padding:14px 16px;margin-top:10px;display:flex;gap:10px;align-items:flex-start">
-      <span style="font-size:26px;flex-shrink:0">⚠️</span>
-      <div>
-        <div style="font-weight:800;font-size:14px;color:#7a4f00">LATE WARNING — 2nd Late</div>
-        <div style="font-size:12px;color:#7a4f00;margin-top:4px"><strong>${student['Full Name']}</strong> now has <strong>2 lates</strong>.<br>One more late will be converted to <strong>ABSENT</strong>.</div>
-      </div>
-    </div>` : '';
-
-  if (resultEl) resultEl.innerHTML = `
-    <div style="background:${cardBg};padding:14px 16px;border-radius:12px;border-left:4px solid ${cardBorder};margin-top:8px;display:flex;gap:10px;align-items:center">
-      <span style="font-size:28px">${icon}</span>
-      <div>
-        <div style="font-weight:700;font-size:15px;color:${cardText}">${student['Full Name']}</div>
-        <div style="font-size:12px;color:${cardBorder}">Marked <strong>${label}</strong> — Week ${APP.currentWeek} · Table ${student['Table No']}</div>
-        <div style="font-size:11px;color:#666;margin-top:2px">Scanned at ${scanTime}${remarks ? ' · ' + remarks : ''}</div>
-      </div>
-    </div>${warningHtml}`;
-
-  // 3rd Late → Absent: show full-screen flashing alert modal
-  if (alertType === 'alert-3rd') {
-    showLateAbsentAlert(student['Full Name'], student['Table No'], scanTime);
-  } else if (autoDropped) {
-    showAutoDropAlert(student['Full Name'], student['Table No'], scanTime);
-  }
-
-  showToast(`${icon} ${student['Full Name']} — ${label}`);
-}
-
-function showLateAbsentAlert(name, tableNo, scanTime) {
-  // Remove existing alert if any
-  const existing = document.getElementById('late-absent-alert-overlay');
-  if (existing) existing.remove();
-
-  const overlay = document.createElement('div');
-  overlay.id = 'late-absent-alert-overlay';
-  overlay.style.cssText = `
-    position:fixed;top:0;left:0;width:100%;height:100%;
-    background:rgba(180,0,0,0.92);z-index:99999;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    animation:latePulse 0.6s ease-in-out infinite alternate;
-    padding:24px;box-sizing:border-box;text-align:center;
-  `;
-
-  overlay.innerHTML = `
-    <style>
-      @keyframes latePulse {
-        from { background: rgba(180,0,0,0.92); }
-        to   { background: rgba(220,0,0,0.98); }
-      }
-      @keyframes bounceIn {
-        0%   { transform: scale(0.5); opacity:0; }
-        70%  { transform: scale(1.1); }
-        100% { transform: scale(1);   opacity:1; }
-      }
-    </style>
-    <div style="animation:bounceIn 0.4s ease-out forwards">
-      <div style="font-size:72px;margin-bottom:8px">🚨</div>
-      <div style="font-size:13px;font-weight:800;color:rgba(255,255,255,0.7);letter-spacing:3px;margin-bottom:8px">ATTENDANCE ALERT</div>
-      <div style="font-size:28px;font-weight:900;color:#fff;line-height:1.2;margin-bottom:6px">${name}</div>
-      <div style="font-size:14px;color:rgba(255,255,255,0.85);margin-bottom:20px">Table ${tableNo} · Scanned at ${scanTime}</div>
-      <div style="background:rgba(0,0,0,0.35);border-radius:14px;padding:16px 24px;margin-bottom:24px;max-width:320px">
-        <div style="font-size:15px;font-weight:800;color:#ffd700;margin-bottom:6px">3 LATES = 1 ABSENT</div>
-        <div style="font-size:13px;color:#fff;line-height:1.5">This student has accumulated <strong>3 lates</strong>.<br>This scan has been automatically recorded as <strong style="color:#ffd700">ABSENT</strong>.</div>
-      </div>
-      <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-bottom:20px">Please inform the student and their table guide.</div>
-      <button onclick="document.getElementById('late-absent-alert-overlay').remove()"
-        style="background:#fff;color:#c00;font-weight:800;font-size:15px;border:none;border-radius:12px;padding:14px 40px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.3)">
-        ✓ ACKNOWLEDGED
-      </button>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
-
-  // Auto-dismiss after 15 seconds if not acknowledged
-  setTimeout(() => {
-    const el = document.getElementById('late-absent-alert-overlay');
-    if (el) el.remove();
-  }, 15000);
-}
-
-  setScanStatus('success', `${student['Full Name']} marked ${label} ✓`);
+  setScanStatus('success', student['Full Name'] + ' marked PRESENT ✓');
   const resultEl = document.getElementById('qr-result');
   if (resultEl) resultEl.innerHTML = `
-    <div style="background:${cardBg};padding:14px 16px;border-radius:12px;border-left:4px solid ${cardBorder};margin-top:8px;display:flex;gap:10px;align-items:center">
-      <span style="font-size:28px">${icon}</span>
+    <div style="background:#e8f5ee;padding:14px 16px;border-radius:12px;border-left:4px solid #2d6a4f;margin-top:8px;display:flex;gap:10px;align-items:center">
+      <span style="font-size:28px">✅</span>
       <div>
-        <div style="font-weight:700;font-size:15px;color:${cardText}">${student['Full Name']}</div>
-        <div style="font-size:12px;color:${cardBorder}">Marked <strong>${label}</strong> — Week ${APP.currentWeek} · Table ${student['Table No']}</div>
-        <div style="font-size:11px;color:#666;margin-top:2px">Scanned at ${scanTime}${remarks ? ' · ' + remarks : ''}</div>
+        <div style="font-weight:700;font-size:15px;color:#1a3a2a">${student['Full Name']}</div>
+        <div style="font-size:12px;color:#2d6a4f">Marked <strong>PRESENT</strong> — Week ${APP.currentWeek} · Table ${student['Table No']}</div>
+        <div style="font-size:11px;color:#666;margin-top:2px">${new Date().toLocaleTimeString()}</div>
       </div>
     </div>`;
-  showToast(`${icon} ${student['Full Name']} — ${label}`);
-
-
-function showAutoDropAlert(name, tableNo, scanTime) {
-  const existing = document.getElementById('late-absent-alert-overlay');
-  if (existing) existing.remove();
-
-  const overlay = document.createElement('div');
-  overlay.id = 'late-absent-alert-overlay';
-  overlay.style.cssText = `
-    position:fixed;top:0;left:0;width:100%;height:100%;
-    background:rgba(80,0,0,0.95);z-index:99999;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    animation:latePulse 0.6s ease-in-out infinite alternate;
-    padding:24px;box-sizing:border-box;text-align:center;
-  `;
-  overlay.innerHTML = `
-    <div style="animation:bounceIn 0.4s ease-out forwards">
-      <div style="font-size:72px;margin-bottom:8px">🚫</div>
-      <div style="font-size:13px;font-weight:800;color:rgba(255,255,255,0.7);letter-spacing:3px;margin-bottom:8px">STUDENT DROPPED</div>
-      <div style="font-size:28px;font-weight:900;color:#fff;line-height:1.2;margin-bottom:6px">${name}</div>
-      <div style="font-size:14px;color:rgba(255,255,255,0.85);margin-bottom:20px">Table ${tableNo} · Scanned at ${scanTime}</div>
-      <div style="background:rgba(0,0,0,0.4);border-radius:14px;padding:16px 24px;margin-bottom:24px;max-width:340px">
-        <div style="font-size:15px;font-weight:800;color:#ffd700;margin-bottom:8px">3 UNEXCUSED ABSENCES</div>
-        <div style="font-size:13px;color:#fff;line-height:1.6">This student has reached <strong>3 unexcused absences</strong> and has been automatically <strong style="color:#ffd700">DROPPED</strong> from the class.<br><br>Please coordinate with the Lifeclass Team.</div>
-      </div>
-      <button onclick="document.getElementById('late-absent-alert-overlay').remove()"
-        style="background:#fff;color:#7a0000;font-weight:800;font-size:15px;border:none;border-radius:12px;padding:14px 40px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.3)">
-        ✓ ACKNOWLEDGED
-      </button>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-  setTimeout(() => { const el = document.getElementById('late-absent-alert-overlay'); if (el) el.remove(); }, 15000);
+  showToast('✅ ' + student['Full Name'] + ' — Present');
 }
 
 async function scanFacultyQR(id) {
@@ -1716,129 +1438,25 @@ function renderAFacultyAtt() {
 // ═══════════════════════════════════════════
 function renderMakeup() {
   const el   = document.getElementById('makeup-list');
-  const week = document.getElementById('makeup-week')?.value || '0';
+  const week = document.getElementById('makeup-week')?.value || "0";
   if (!el) return;
-
   let absences = APP.attendance.filter(a =>
-    (a['Attendance Status'] || a['Status'] || '').toLowerCase() === 'absent'
+    (a["Attendance Status"] || a["Status"] || "").toLowerCase() === "absent"
   );
-  if (week !== '0') absences = absences.filter(a => String(a['Week No']) === String(week));
-
+  if (week !== "0") absences = absences.filter(a => String(a["Week No"]) === String(week));
   if (!absences.length) {
     el.innerHTML = '<p style="padding:16px;color:var(--gray)">No absences found.</p>';
     return;
   }
-
-  const today = new Date();
-
-  el.innerHTML = absences.map(a => {
-    const studentId = String(a['Student ID'] || '');
-    const weekNo    = String(a['Week No'] || '');
-    const name      = a['Student Name'] || a['StudentName'] || '—';
-    const tableNo   = a['Table No'] || '—';
-
-    const makeup = (APP.makeups || []).find(m =>
-      String(m['Student ID']) === studentId && String(m['Week No']) === weekNo
-    );
-
-    const absenceDate = a['Timestamp'] ? new Date(a['Timestamp']) : null;
-    let deadlineHtml = '', daysLeft = null;
-    if (absenceDate && !isNaN(absenceDate)) {
-      const deadline = new Date(absenceDate);
-      deadline.setDate(deadline.getDate() + 7);
-      daysLeft = Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
-      const deadlineStr  = deadline.toLocaleDateString('en-PH', { month:'short', day:'numeric', year:'numeric' });
-      const deadlineColor = daysLeft < 0 ? '#e53935' : daysLeft <= 2 ? '#c9960c' : '#2d6a4f';
-      deadlineHtml = `<div style="font-size:10px;color:${deadlineColor};font-weight:600;margin-top:3px">
-        ${daysLeft < 0 ? '⛔ Make-up deadline passed' : `⏰ ${daysLeft} day(s) left — due ${deadlineStr}`}
-      </div>`;
-    }
-
-    let statusBadge, actionBtns;
-    if (!makeup) {
-      statusBadge = `<span style="background:#fdecea;color:#e53935;font-size:10px;font-weight:700;padding:3px 8px;border-radius:12px">Unexcused</span>`;
-      actionBtns  = (daysLeft === null || daysLeft >= 0)
-        ? `<button onclick="openMakeupRequest('${studentId}','${weekNo}','${name.replace(/'/g,"\\'")}','${tableNo}')"
-            style="margin-top:8px;width:100%;background:#e8f5ee;color:#2d6a4f;border:1.5px solid #2d6a4f;border-radius:8px;padding:7px;font-size:11px;font-weight:700;cursor:pointer">
-            📋 File Make-up Request
-          </button>`
-        : `<div style="margin-top:6px;font-size:10px;color:#e53935;font-weight:600">⛔ Make-up period expired (7-day window closed)</div>`;
-    } else {
-      const mkStatus = (makeup['Status'] || 'Pending').toLowerCase();
-      if (mkStatus === 'approved') {
-        statusBadge = `<span style="background:#e8f5ee;color:#2d6a4f;font-size:10px;font-weight:700;padding:3px 8px;border-radius:12px">✅ Excused</span>`;
-        actionBtns  = `<div style="font-size:10px;color:#2d6a4f;margin-top:4px">Make-up approved by ${makeup['Approved By'] || 'Lifeclass Team'}</div>`;
-      } else if (mkStatus === 'denied') {
-        statusBadge = `<span style="background:#fdecea;color:#e53935;font-size:10px;font-weight:700;padding:3px 8px;border-radius:12px">❌ Denied</span>`;
-        actionBtns  = `<div style="font-size:10px;color:#e53935;margin-top:4px">Reason: ${makeup['Remarks'] || '—'}</div>`;
-      } else {
-        statusBadge = `<span style="background:#fff5e0;color:#c9960c;font-size:10px;font-weight:700;padding:3px 8px;border-radius:12px">🕐 Pending Review</span>`;
-        actionBtns  = `
-          <div style="font-size:10px;color:#7a5a00;margin-top:4px;margin-bottom:6px">Reason: ${makeup['Reason'] || '—'}</div>
-          <div style="display:flex;gap:6px">
-            <button onclick="approveMakeup('${studentId}_${weekNo}','${studentId}','${weekNo}','${name.replace(/'/g,"\\'")}')"
-              style="flex:1;background:#2d6a4f;color:#fff;border:none;border-radius:8px;padding:7px;font-size:11px;font-weight:700;cursor:pointer">✅ Approve</button>
-            <button onclick="denyMakeup('${studentId}_${weekNo}','${name.replace(/'/g,"\\'")}')"
-              style="flex:1;background:#e53935;color:#fff;border:none;border-radius:8px;padding:7px;font-size:11px;font-weight:700;cursor:pointer">❌ Deny</button>
-          </div>`;
-      }
-    }
-
-    return `
-      <div style="padding:12px 0;border-bottom:1px solid var(--border)">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px">
-          <div>
-            <strong style="font-size:13px">${name}</strong><br>
-            <small style="color:var(--text3)">Week ${weekNo} · Table ${tableNo}</small>
-          </div>
-          ${statusBadge}
-        </div>
-        ${deadlineHtml}
-        ${actionBtns}
-      </div>`;
-  }).join('');
-}
-
-function openMakeupRequest(studentId, weekNo, name, tableNo) {
-  const reason = prompt(`Make-up request for ${name} (Week ${weekNo})\n\nEnter reason / excuse:`);
-  if (!reason) return;
-  submitMakeupRequest(studentId, weekNo, name, tableNo, reason);
-}
-
-async function submitMakeupRequest(studentId, weekNo, name, tableNo, reason) {
-  try {
-    await apiPost({
-      action: 'addMakeup', studentId, weekNo,
-      studentName: name, tableNo, reason,
-      status: 'Pending',
-      requestedBy: APP.currentAdmin?.['Full Name'] || APP.currentFaculty?.['Full Name'] || 'Team',
-      timestamp: new Date().toISOString()
-    });
-    await loadAllData();
-    renderMakeup();
-    showToast('📋 Make-up request submitted for ' + name);
-  } catch(e) { showToast('❌ Failed to submit'); console.error(e); }
-}
-
-async function approveMakeup(makeupId, studentId, weekNo, name) {
-  const approver = APP.currentAdmin?.['Full Name'] || APP.currentFaculty?.['Full Name'] || 'Lifeclass Team';
-  try {
-    await apiPost({ action: 'updateMakeup', makeupId, studentId, weekNo, status: 'Approved', approvedBy: approver });
-    await loadAllData();
-    renderMakeup();
-    showToast('✅ Make-up approved for ' + name);
-  } catch(e) { showToast('❌ Failed to approve'); console.error(e); }
-}
-
-async function denyMakeup(makeupId, name) {
-  const reason = prompt(`Deny make-up for ${name}?\n\nReason for denial:`);
-  if (!reason) return;
-  try {
-    await apiPost({ action: 'updateMakeup', makeupId, status: 'Denied', remarks: reason });
-    await loadAllData();
-    renderMakeup();
-    showToast('❌ Make-up denied for ' + name);
-  } catch(e) { showToast('❌ Failed to deny'); console.error(e); }
+  el.innerHTML = absences.map(a => `
+    <div class="row">
+      <div>
+        <strong>${a["Student Name"] || a["StudentName"] || "—"}</strong><br>
+        <small>Week ${a["Week No"]} · Table ${a["Table No"] || "—"}</small>
+      </div>
+      <div style="color:var(--red,#e53935)">Absent</div>
+    </div>
+  `).join('');
 }
 
 // ═══════════════════════════════════════════
