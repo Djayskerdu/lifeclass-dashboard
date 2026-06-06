@@ -311,12 +311,27 @@ function renderFStudents() {
     list.innerHTML = '<p style="padding:16px;color:var(--gray)">No students found.</p>';
     return;
   }
-  list.innerHTML = filtered.map(s => `
-    <div class="row">
-      <div><strong>${s["Full Name"]}</strong><br><small>Table ${s["Table No"]}</small></div>
-      <div>${getStudentCredits(s["Student ID"])} LC</div>
-    </div>
-  `).join('');
+
+  const statusColors = {
+    present: { bg: '#e8f5ee', color: '#2d6a4f', label: 'Present' },
+    late:    { bg: '#fff5e0', color: '#c9960c', label: 'Late'    },
+    absent:  { bg: '#fdecea', color: '#e53935', label: 'Absent'  },
+  };
+
+  list.innerHTML = filtered.map(s => {
+    const att = APP.attendance.find(a =>
+      String(a["Student ID"]) === String(s["Student ID"]) &&
+      String(a["Week No"]) === String(week)
+    );
+    const rawStatus = (att?.["Attendance Status"] || att?.["Status"] || (att ? "present" : "absent")).toLowerCase();
+    const key = rawStatus.includes("late") ? "late" : rawStatus.includes("present") ? "present" : "absent";
+    const { bg, color, label } = statusColors[key];
+    return `
+      <div class="row" style="align-items:center">
+        <div><strong>${s["Full Name"]}</strong><br><small>Table ${s["Table No"]}</small></div>
+        <div style="background:${bg};color:${color};font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap">${label}</div>
+      </div>`;
+  }).join('');
 }
 
 // ═══════════════════════════════════════════
