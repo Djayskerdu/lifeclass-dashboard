@@ -1152,7 +1152,7 @@ function showLateAbsentAlert(name, tableNo, scanTime) {
       </div>
     </div>`;
   showToast(`${icon} ${student['Full Name']} — ${label}`);
-}
+
 
 function showAutoDropAlert(name, tableNo, scanTime) {
   const existing = document.getElementById('late-absent-alert-overlay');
