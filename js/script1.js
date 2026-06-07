@@ -1972,14 +1972,17 @@ function updateAdminHomeStats() {
     totalPaidEl.textContent = `₱${total.toLocaleString()}`;
   }
 
-  const absentStudentIds = new Set(
-    APP.attendance
-      .filter(a => (a["Attendance Status"] || a["Status"] || "").toLowerCase() === "absent")
-      .map(a => String(a["Student ID"]))
-  );
+  const pendingMakeupCount = APP.attendance
+    .filter(a => {
+      const isAbsent = (a["Attendance Status"] || a["Status"] || "").toLowerCase() === "absent";
+      if (!isAbsent) return false;
+      const attId = a["Attendance ID"] || a["id"] || "";
+      const mkStatus = (APP.makeupStatus[attId]?.status || "Pending").toLowerCase();
+      return mkStatus === "pending";
+    }).length;
   const badge = document.getElementById('a-makeup-badge');
   if (badge) {
-    if (absentStudentIds.size > 0) { badge.textContent = `${absentStudentIds.size} pending`; badge.style.display = ''; }
+    if (pendingMakeupCount > 0) { badge.textContent = `${pendingMakeupCount} pending`; badge.style.display = ''; }
     else { badge.style.display = 'none'; }
   }
 
