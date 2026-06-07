@@ -1066,14 +1066,69 @@ function renderDroppedStudents() {
   el.innerHTML = tables.map(t => `
     <div style="margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:0.05em;padding:10px 16px 4px">TABLE ${t}</div>
-      ${byTable[t].map(s => `
-        <div class="row">
-          <div><strong>${s["Full Name"]}</strong><br><small>${s["LG Leader"] || "—"}</small></div>
-          <div style="color:var(--red,#e53935);font-size:12px;font-weight:600">Dropped</div>
+      ${byTable[t].map(s => {
+        // Count absences for this student
+        const absenceCount = APP.attendance.filter(a =>
+          String(a['Student ID']) === String(s['Student ID']) &&
+          (a['Attendance Status'] || a['Status'] || '').toLowerCase().includes('absent')
+        ).length;
+        return `
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);background:#fff">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+            <div>
+              <div style="font-weight:700;font-size:14px;color:var(--text1)">${s["Full Name"]}</div>
+              <div style="font-size:12px;color:var(--text3)">${s["LG Leader"] || "—"} · Table ${t}</div>
+              <div style="font-size:11px;color:#e53935;margin-top:2px;font-weight:600">🚫 DROPPED — ${absenceCount} absence${absenceCount !== 1 ? 's' : ''}</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button onclick="handleDropDecision('${s["Student ID"]}','${s["Full Name"].replace(/'/g,"\\'")}','drop')"
+              style="flex:1;padding:8px;border-radius:8px;border:1.5px solid #e53935;background:#fdecea;color:#e53935;font-size:12px;font-weight:700;cursor:pointer">
+              🗑 Drop (no excuse)
+            </button>
+            <button onclick="handleDropDecision('${s["Student ID"]}','${s["Full Name"].replace(/'/g,"\\'")}','continue')"
+              style="flex:1;padding:8px;border-radius:8px;border:1.5px solid #27ae60;background:#e8f5ee;color:#27ae60;font-size:12px;font-weight:700;cursor:pointer">
+              ✅ Continue (valid excuse)
+            </button>
+          </div>
         </div>
-      `).join('')}
+      `}).join('')}
     </div>
   `).join('');
+}
+
+async function handleDropDecision(studentId, studentName, decision) {
+  const student = APP.students.find(s => String(s['Student ID']) === String(studentId));
+  if (!student) return;
+
+  if (decision === 'drop') {
+    if (!confirm(`Confirm DROP for ${studentName}?\n\nNo valid excuse — this student will remain dropped and their QR code will stay disabled.`)) return;
+    // Already dropped — just confirm and keep as-is (status stays "Dropped")
+    showToast(`🗑 ${studentName} confirmed Dropped`);
+    renderDroppedStudents();
+
+  } else if (decision === 'continue') {
+    const excuse = prompt(`Allow ${studentName} to CONTINUE?\n\nEnter the valid excuse / reason (required):`);
+    if (excuse === null) return; // cancelled
+    if (!excuse.trim()) { showToast('⚠️ Excuse is required to reinstate.'); return; }
+    try {
+      await apiPost({
+        action: 'updateStudentStatus',
+        studentId: student['Student ID'],
+        studentName: student['Full Name'],
+        status: 'Active',
+        notes: excuse.trim()
+      });
+      student['Status'] = 'Active';
+      showToast(`✅ ${studentName} reinstated — QR re-enabled`);
+      renderDroppedStudents();
+      updateAdminHomeStats();
+      populateCreditStudentSelect();
+    } catch (err) {
+      console.error('handleDropDecision error:', err);
+      showToast('❌ Failed to update status');
+    }
+  }
 }
 
 function openDropStudentModal() {
@@ -1275,7 +1330,25 @@ async function scanQR(id) {
   const student = APP.students.find(s => String(s['Student ID']) === String(id));
   if (!student) return;
 
-  // Check if already scanned this week
+  // ── Block dropped students ──────────────────────────────────────────────
+  const studentStatus = (student['Status'] || 'Active').toLowerCase();
+  if (studentStatus === 'dropped') {
+    setScanStatus('error', student['Full Name'] + ' — DROPPED (QR disabled)');
+    const resultEl = document.getElementById('qr-result');
+    if (resultEl) resultEl.innerHTML = `
+      <div style="background:#fdecea;padding:14px 16px;border-radius:12px;border-left:4px solid #e53935;margin-top:8px;display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:28px">🚫</span>
+        <div>
+          <div style="font-weight:700;font-size:15px;color:#b71c1c">${student['Full Name']}</div>
+          <div style="font-size:12px;color:#e53935;margin-top:2px">This student has been <strong>DROPPED</strong>.</div>
+          <div style="font-size:11px;color:#888;margin-top:4px">Contact the director or consultant to reinstate.</div>
+        </div>
+      </div>`;
+    showToast('🚫 ' + student['Full Name'] + ' — Dropped, QR disabled');
+    return;
+  }
+
+  // ── Check if already scanned this week ────────────────────────────────
   const alreadyScanned = APP.attendance.find(a =>
     String(a['Student ID']) === String(id) &&
     String(a['Week No']) === String(APP.currentWeek)
@@ -1309,7 +1382,61 @@ async function scanQR(id) {
     weekNo:APP.currentWeek, status:status, remarks:''
   });
 
-  // Show alert with rules reminder
+  // ── Check absence count AFTER recording this scan ─────────────────────
+  if (status === 'Absent') {
+    // Count absences including the one just recorded (reload first for accuracy)
+    await loadAllData();
+    const totalAbsences = APP.attendance.filter(a =>
+      String(a['Student ID']) === String(id) &&
+      (a['Attendance Status'] || a['Status'] || '').toLowerCase().includes('absent')
+    ).length;
+
+    if (totalAbsences >= 3) {
+      // Auto-drop: update status to Dropped
+      await apiPost({
+        action: 'updateStudentStatus',
+        studentId: student['Student ID'],
+        studentName: student['Full Name'],
+        status: 'Dropped'
+      });
+      // Update local state immediately
+      student['Status'] = 'Dropped';
+      setScanStatus('error', student['Full Name'] + ' — AUTO-DROPPED (3 absences)');
+      const resultEl = document.getElementById('qr-result');
+      if (resultEl) resultEl.innerHTML = `
+        <div style="background:#fdecea;padding:14px 16px;border-radius:12px;border-left:4px solid #b71c1c;margin-top:8px;display:flex;gap:10px;align-items:flex-start">
+          <span style="font-size:28px">🚫</span>
+          <div>
+            <div style="font-weight:700;font-size:15px;color:#b71c1c">${student['Full Name']}</div>
+            <div style="font-size:13px;color:#e53935;margin-top:2px"><strong>AUTO-DROPPED</strong> — 3rd unexcused absence reached.</div>
+            <div style="font-size:11px;color:#888;margin-top:4px">Director or consultant must review in admin portal.</div>
+          </div>
+        </div>`;
+      showToast('🚫 ' + student['Full Name'] + ' AUTO-DROPPED — 3 absences');
+      updateAdminHomeStats();
+      return;
+    }
+
+    // Show warning if 2 absences (next = drop)
+    if (totalAbsences === 2) {
+      const resultEl = document.getElementById('qr-result');
+      if (resultEl) resultEl.innerHTML = `
+        <div style="background:#fdecea;padding:14px 16px;border-radius:12px;border-left:4px solid #e53935;margin-top:8px;display:flex;gap:10px;align-items:center">
+          <span style="font-size:28px">❌</span>
+          <div>
+            <div style="font-weight:700;font-size:15px;color:#b71c1c">${student['Full Name']}</div>
+            <div style="font-size:12px;color:#e53935">Marked <strong>Absent</strong> — Week ${APP.currentWeek} · Table ${student['Table No']}</div>
+            <div style="font-size:12px;color:#b71c1c;font-weight:700;margin-top:4px">⚠️ WARNING: 2 absences — 1 more = AUTO-DROP</div>
+          </div>
+        </div>`;
+      showToast('❌ ' + student['Full Name'] + ' — Absent (2nd, 1 more = Drop)');
+      setTimeout(() => alert(`⚠️ WARNING\n\n${student['Full Name']} now has 2 absences.\nOne more unexcused absence will automatically DROP this student.`), 300);
+      updateAdminHomeStats();
+      return;
+    }
+  }
+
+  // ── Normal result display ──────────────────────────────────────────────
   const alertMsg = getAttendanceAlertMessage(status);
   const statusColors = { Present: { bg:'#e8f5ee', border:'#2d6a4f', icon:'✅' }, Late: { bg:'#fff5e0', border:'#c9960c', icon:'⏰' }, Absent: { bg:'#fdecea', border:'#e53935', icon:'❌' } };
   const sc = statusColors[status] || statusColors['Present'];
@@ -1710,31 +1837,50 @@ function renderBalances() {
 // PRINT
 // ═══════════════════════════════════════════
 function printAttendance() {
-  const data = APP.attendance.map(a => `
+  // Get the currently selected week from the attendance week filter
+  const weekEl = document.getElementById('a-att-week');
+  const selectedWeek = weekEl ? weekEl.value : APP.currentWeek;
+  const lessonInfo = APP.lessons.find(l => String(l['Week No']) === String(selectedWeek));
+  const lessonLabel = lessonInfo
+    ? `Lesson ${lessonInfo['Week No']}${lessonInfo['Lesson Title'] ? ' — ' + lessonInfo['Lesson Title'] : ''}`
+    : `Lesson ${selectedWeek}`;
+
+  // Filter attendance to only the selected lesson
+  const filtered = APP.attendance.filter(a => String(a['Week No']) === String(selectedWeek));
+
+  if (!filtered.length) {
+    alert('No attendance records found for ' + lessonLabel);
+    return;
+  }
+
+  const data = filtered.map(a => `
     <tr>
       <td>${formatDate(a["Scan Time"] || a["ScanTime"])}</td>
       <td>${a["Student Name"] || a["StudentName"] || ""}</td>
       <td>${a["Age"]            || ""}</td>
       <td>${a["Gender"]         || ""}</td>
+      <td>${a["Attendance Status"] || a["Status"] || "Present"}</td>
       <td>${a["LG Leader"]      || ""}</td>
       <td>${a["Network Leader"] || ""}</td>
     </tr>
   `).join("");
   const win = window.open("", "", "width=900,height=700");
   win.document.write(`
-    <html><head><title>Student Attendance Print</title>
+    <html><head><title>Student Attendance — ${lessonLabel}</title>
     <style>
       @page { size: A4 portrait; margin: 20mm; }
       body { font-family: Arial, sans-serif; }
-      h2 { text-align: center; margin-bottom: 20px; }
+      h2 { text-align: center; margin-bottom: 4px; }
+      h3 { text-align: center; margin-top: 0; margin-bottom: 20px; color: #555; font-weight: 400; }
       table { width: 100%; border-collapse: collapse; font-size: 12px; }
       th, td { border: 1px solid #000; padding: 6px; text-align: left; }
       th { background: #f2f2f2; }
     </style></head>
     <body>
       <h2>STUDENT ATTENDANCE REPORT — ${APP.settings["Batch Name"] || "LIFECLASS"}</h2>
+      <h3>${lessonLabel}</h3>
       <table>
-        <thead><tr><th>Scan Time</th><th>Name</th><th>Age</th><th>Gender</th><th>LG Leader</th><th>Network Leader</th></tr></thead>
+        <thead><tr><th>Scan Time</th><th>Name</th><th>Age</th><th>Gender</th><th>Status</th><th>LG Leader</th><th>Network Leader</th></tr></thead>
         <tbody>${data}</tbody>
       </table>
       <script>window.print();<\/script>

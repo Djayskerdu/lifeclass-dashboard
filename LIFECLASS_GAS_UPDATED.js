@@ -149,6 +149,10 @@ function doPost(e) {
       case "updateMakeupStatus":
         return output(updateMakeupStatus(data));
 
+      // NEW: Update student status (Active / Dropped)
+      case "updateStudentStatus":
+        return output(updateStudentStatus(data));
+
       default:
         return output({
           success: false,
@@ -535,6 +539,43 @@ function updateMakeupStatus(data) {
     data.notes || ""              // Notes
   ]);
   return { success: true, message: "Makeup status set to " + data.status };
+}
+
+/************************************************
+ * STUDENT STATUS — Update Active / Dropped
+ * data: { studentId, studentName, status, notes? }
+ * status values: "Active" | "Dropped"
+ ************************************************/
+
+function updateStudentStatus(data) {
+  const sheet  = getSheet("STUDENTS");
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0];
+  const idCol     = headers.indexOf("Student ID");
+  const statusCol = headers.indexOf("Status");
+  const notesCol  = headers.indexOf("Drop Notes"); // optional column; add if needed
+
+  if (idCol < 0 || statusCol < 0) {
+    throw new Error("STUDENTS sheet missing 'Student ID' or 'Status' column.");
+  }
+
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][idCol]) === String(data.studentId)) {
+      sheet.getRange(i + 1, statusCol + 1).setValue(data.status);
+      // Write notes to Drop Notes column if it exists
+      if (notesCol >= 0 && data.notes) {
+        sheet.getRange(i + 1, notesCol + 1).setValue(data.notes);
+      }
+      return {
+        success: true,
+        message: data.studentName + " status updated to " + data.status
+      };
+    }
+  }
+  return {
+    success: false,
+    message: "Student not found: " + data.studentId
+  };
 }
 
 /************************************************
