@@ -58,8 +58,73 @@ let APP = {
   currentScreen: 's-portal',
   selectedReason: 'Attendance',
   currentWeek: 1,
-  totalFee: 500
+  totalFee: 500,
+  devotionals: {}  // studentId -> Set of completed day numbers (1-63)
 };
+
+// ═══════════════════════════════════════════
+// ATTENDANCE TIME RULES
+// 1:00 PM - 1:44 PM = Present
+// 1:45 PM - 2:29 PM = Late
+// 2:30 PM onwards   = Absent
+// ═══════════════════════════════════════════
+function getAttendanceStatusByTime() {
+  const now = new Date();
+  const h = now.getHours();
+  const m = now.getMinutes();
+  const totalMin = h * 60 + m;
+  const t_100 = 13 * 60 + 0;   // 1:00 PM
+  const t_144 = 13 * 60 + 44;  // 1:44 PM
+  const t_145 = 13 * 60 + 45;  // 1:45 PM
+  const t_229 = 14 * 60 + 29;  // 2:29 PM
+  const t_230 = 14 * 60 + 30;  // 2:30 PM
+
+  if (totalMin >= t_100 && totalMin <= t_144) return 'Present';
+  if (totalMin >= t_145 && totalMin <= t_229) return 'Late';
+  if (totalMin >= t_230) return 'Absent';
+  // Before 1:00 PM, treat as Present (early) 
+  return 'Present';
+}
+
+function getAttendanceAlertMessage(status) {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  if (status === 'Present') return `✅ PRESENT — Scanned at ${timeStr}\n(1:00 PM – 1:44 PM window)`;
+  if (status === 'Late')    return `⏰ LATE — Scanned at ${timeStr}\n(1:45 PM – 2:29 PM window)\n⚠️ 3 unexcused tardiness = 1 Absent`;
+  if (status === 'Absent')  return `❌ ABSENT — Scanned at ${timeStr}\n(After 2:30 PM)\n⚠️ 3 unexcused absences = Drop`;
+  return '';
+}
+
+// ═══════════════════════════════════════════
+// DEVOTIONAL HELPERS — stored locally
+// ═══════════════════════════════════════════
+const DEVOTIONAL_KEY_PREFIX = 'lc_devot_';
+const TOTAL_DEVOTIONAL_DAYS = 63;
+
+function loadDevotionals() {
+  APP.students.forEach(s => {
+    const key = DEVOTIONAL_KEY_PREFIX + s['Student ID'];
+    try {
+      const saved = localStorage.getItem(key);
+      APP.devotionals[s['Student ID']] = saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch(e) {
+      APP.devotionals[s['Student ID']] = new Set();
+    }
+  });
+}
+
+function saveDevotional(studentId, day, checked) {
+  if (!APP.devotionals[studentId]) APP.devotionals[studentId] = new Set();
+  if (checked) APP.devotionals[studentId].add(day);
+  else APP.devotionals[studentId].delete(day);
+  try {
+    localStorage.setItem(DEVOTIONAL_KEY_PREFIX + studentId, JSON.stringify([...APP.devotionals[studentId]]));
+  } catch(e) {}
+}
+
+function getDevotionalCount(studentId) {
+  return APP.devotionals[studentId] ? APP.devotionals[studentId].size : 0;
+}
 
 // ═══════════════════════════════════════════
 // INIT
@@ -115,6 +180,7 @@ async function loadAllData() {
 
   const failCount = results.filter(r => r.status === 'rejected').length;
 
+  loadDevotionals();
   populateCreditStudentSelect();
   populatePayStudentSelect();
   populateWeekDropdowns();
@@ -200,6 +266,7 @@ function refreshCurrentScreen() {
   if (id === 's-f-students')    renderFStudents();
   if (id === 's-f-payment')     renderFPayment();
   if (id === 's-f-credits')     renderFCredits();
+  if (id === 's-f-devotional')  renderFDevotional();
   if (id === 's-admin-home')    updateAdminHomeStats();
   if (id === 's-a-student-att') renderAStudentAtt();
   if (id === 's-a-faculty-att') renderAFacultyAtt();
@@ -207,6 +274,7 @@ function refreshCurrentScreen() {
   if (id === 's-a-dropped')     renderDroppedStudents();
   if (id === 's-a-tables')      renderATables();
   if (id === 's-a-leaderboard') switchLeaderboardTab('students');
+  if (id === 's-a-devotional')  renderADevotionalTables();
   if (id === 's-record-home')   renderRecordStats();
   if (id === 's-r-qr')          { switchQRTab('scan'); }
   if (id === 's-r-attendance')  switchAttTab('students');
@@ -228,6 +296,7 @@ function go(id) {
   if (id === 's-f-students')    renderFStudents();
   if (id === 's-f-payment')     renderFPayment();
   if (id === 's-f-credits')     renderFCredits();
+  if (id === 's-f-devotional')  renderFDevotional();
   if (id === 's-admin-home')    updateAdminHomeStats();
   if (id === 's-a-student-att') renderAStudentAtt();
   if (id === 's-a-faculty-att') renderAFacultyAtt();
@@ -235,6 +304,7 @@ function go(id) {
   if (id === 's-a-dropped')     renderDroppedStudents();
   if (id === 's-a-tables')      renderATables();
   if (id === 's-a-leaderboard') switchLeaderboardTab('students');
+  if (id === 's-a-devotional')  renderADevotionalTables();
   if (id === 's-record-home')   renderRecordStats();
   if (id === 's-r-qr')          { switchQRTab('scan'); }
   if (id === 's-r-attendance')  switchAttTab('students');
@@ -296,7 +366,7 @@ function showLessonDetail(weekNo, prefix) {
 }
 
 // ═══════════════════════════════════════════
-// FACULTY — STUDENTS LIST
+// FACULTY — ATTENDANCE LIST (renamed from Students)
 // ═══════════════════════════════════════════
 function renderFStudents() {
   const list = document.getElementById('f-students-list');
@@ -318,6 +388,7 @@ function renderFStudents() {
     absent:  { bg: '#fdecea', color: '#e53935', label: 'Absent'  },
   };
 
+  // Tally tardiness and absences for warning
   list.innerHTML = filtered.map(s => {
     const att = APP.attendance.find(a =>
       String(a["Student ID"]) === String(s["Student ID"]) &&
@@ -326,13 +397,176 @@ function renderFStudents() {
     const rawStatus = (att?.["Attendance Status"] || att?.["Status"] || (att ? "present" : "absent")).toLowerCase();
     const key = rawStatus.includes("late") ? "late" : rawStatus.includes("present") ? "present" : "absent";
     const { bg, color, label } = statusColors[key];
+
+    // Count totals for warnings
+    const allAtt = APP.attendance.filter(a => String(a["Student ID"]) === String(s["Student ID"]));
+    const totalLate = allAtt.filter(a => (a["Attendance Status"]||a["Status"]||"").toLowerCase().includes("late")).length;
+    const totalAbsent = allAtt.filter(a => (a["Attendance Status"]||a["Status"]||"").toLowerCase().includes("absent")).length;
+    const warningHtml = totalAbsent >= 2 ? `<div style="font-size:10px;color:#e53935;margin-top:2px">⚠️ ${totalAbsent} absences${totalAbsent >= 3 ? ' — DROP RISK' : ''}</div>` :
+                        totalLate >= 2 ? `<div style="font-size:10px;color:#c9960c;margin-top:2px">⏰ ${totalLate} tardiness${totalLate >= 3 ? ' = 1 Absent' : ''}</div>` : '';
+
     return `
       <div class="row" style="align-items:center">
-        <div><strong>${s["Full Name"]}</strong><br><small>Table ${s["Table No"]}</small></div>
+        <div>
+          <strong>${s["Full Name"]}</strong><br>
+          <small>Table ${s["Table No"]} · Week ${week}</small>
+          ${warningHtml}
+        </div>
         <div style="background:${bg};color:${color};font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap">${label}</div>
       </div>`;
   }).join('');
 }
+
+// ═══════════════════════════════════════════
+// FACULTY — DEVOTIONAL & ACTIVITIES
+// ═══════════════════════════════════════════
+let devotionalCurrentStudent = null;
+
+function renderFDevotional() {
+  const el = document.getElementById('f-devotional-list');
+  if (!el) return;
+  const tableNo = APP.currentFaculty?.["Table Assigned"] || "";
+  const filtered = APP.students.filter(s =>
+    String(s["Table No"]) === String(tableNo) &&
+    (s["Status"] || "Active").toLowerCase() !== "dropped"
+  );
+  if (!filtered.length) {
+    el.innerHTML = '<p style="padding:16px;color:var(--gray)">No students found.</p>';
+    return;
+  }
+  el.innerHTML = filtered.map(s => {
+    const done = getDevotionalCount(s["Student ID"]);
+    const pct  = Math.round((done / TOTAL_DEVOTIONAL_DAYS) * 100);
+    return `
+      <button class="row" style="align-items:center;width:100%;text-align:left;background:none;border:none;cursor:pointer;padding:12px 0;border-bottom:1px solid #f0f0f0" onclick="openDevotionalDetail('${s["Student ID"]}')">
+        <div style="flex:1">
+          <div style="font-weight:600;font-size:14px">${s["Full Name"]}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">Table ${s["Table No"]} · ${done}/${TOTAL_DEVOTIONAL_DAYS} days completed (${pct}%)</div>
+          <div style="height:4px;background:#e0e0e0;border-radius:4px;margin-top:5px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${pct >= 80 ? '#2d6a4f' : pct >= 50 ? '#c9960c' : '#e53935'};border-radius:4px;transition:width 0.3s"></div>
+          </div>
+        </div>
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="width:16px;height:16px;margin-left:10px;flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>`;
+  }).join('');
+}
+
+function openDevotionalDetail(studentId) {
+  const student = APP.students.find(s => String(s["Student ID"]) === String(studentId));
+  if (!student) return;
+  devotionalCurrentStudent = studentId;
+  const el = document.getElementById('f-devot-detail-name');
+  if (el) el.textContent = student["Full Name"] + ' — Devotional & Activities';
+  renderDevotionalChecklist(studentId);
+  go('s-f-devot-detail');
+}
+
+function renderDevotionalChecklist(studentId) {
+  const el = document.getElementById('f-devot-checklist');
+  if (!el) return;
+  const completed = APP.devotionals[studentId] || new Set();
+  let html = '';
+  for (let day = 1; day <= TOTAL_DEVOTIONAL_DAYS; day++) {
+    const checked = completed.has(day);
+    const week = Math.ceil(day / 7);
+    const dayInWeek = ((day - 1) % 7) + 1;
+    const dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    html += `
+      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:${checked ? '#e8f5ee' : '#fafafa'};margin-bottom:6px;cursor:pointer;border:1.5px solid ${checked ? '#2d6a4f' : '#e8e8e8'};transition:all 0.2s">
+        <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleDevotional('${studentId}', ${day}, this.checked)" style="width:18px;height:18px;accent-color:#2d6a4f;cursor:pointer">
+        <div style="flex:1">
+          <span style="font-weight:600;font-size:13px">Day ${day}</span>
+          <span style="color:var(--text3);font-size:11px;margin-left:8px">Week ${week} · ${dayNames[(dayInWeek - 1) % 7]}</span>
+        </div>
+        ${checked ? '<span style="color:#2d6a4f;font-size:13px;font-weight:700">✓</span>' : ''}
+      </label>`;
+  }
+  el.innerHTML = html;
+  // Update counter
+  const counter = document.getElementById('f-devot-counter');
+  if (counter) counter.textContent = `${completed.size}/${TOTAL_DEVOTIONAL_DAYS} completed`;
+}
+
+function toggleDevotional(studentId, day, checked) {
+  saveDevotional(studentId, day, checked);
+  // Re-render just the counter and this item
+  const completed = APP.devotionals[studentId] || new Set();
+  const counter = document.getElementById('f-devot-counter');
+  if (counter) counter.textContent = `${completed.size}/${TOTAL_DEVOTIONAL_DAYS} completed`;
+  // Update label background
+  const labels = document.querySelectorAll('#f-devot-checklist label');
+  labels.forEach((lbl, idx) => {
+    const dayNum = idx + 1;
+    const isChecked = (APP.devotionals[studentId] || new Set()).has(dayNum);
+    lbl.style.background = isChecked ? '#e8f5ee' : '#fafafa';
+    lbl.style.borderColor = isChecked ? '#2d6a4f' : '#e8e8e8';
+  });
+  // Refresh list view too
+  const listEl = document.getElementById('f-devotional-list');
+  if (listEl) renderFDevotional();
+}
+
+// ═══════════════════════════════════════════
+// ADMIN — DEVOTIONAL RECORDS VIEW
+// ═══════════════════════════════════════════
+function renderADevotionalTables() {
+  const el = document.getElementById('a-devot-tables');
+  if (!el) return;
+  // Get all tables
+  const tableNos = [...new Set(APP.students.map(s => String(s["Table No"])))].filter(Boolean).sort();
+  el.innerHTML = tableNos.map(tno => {
+    const students = APP.students.filter(s => String(s["Table No"]) === tno && (s["Status"]||"Active").toLowerCase() !== "dropped");
+    const totalStudents = students.length;
+    const totalDone = students.reduce((sum, s) => sum + getDevotionalCount(s["Student ID"]), 0);
+    const maxPossible = totalStudents * TOTAL_DEVOTIONAL_DAYS;
+    const pct = maxPossible > 0 ? Math.round((totalDone / maxPossible) * 100) : 0;
+    return `
+      <button class="menu-item" onclick="openADevotTable('${tno}')" style="margin-bottom:8px">
+        <div class="mi-icon" style="background:#e8f5ee"><svg viewBox="0 0 24 24" stroke="#2d6a4f" fill="none"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg></div>
+        <div class="mi-text">
+          <div class="mi-title">Table ${tno}</div>
+          <div class="mi-sub">${totalStudents} students · ${totalDone} total devotional days (${pct}%)</div>
+        </div>
+        <svg class="mi-arr" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>`;
+  }).join('') || '<p style="padding:16px;color:var(--gray)">No tables found.</p>';
+}
+
+function openADevotTable(tableNo) {
+  const el = document.getElementById('a-devot-table-title');
+  if (el) el.textContent = `Table ${tableNo} — Devotional Records`;
+  renderADevotTableStudents(tableNo);
+  go('s-a-devot-table');
+}
+
+function renderADevotTableStudents(tableNo) {
+  const el = document.getElementById('a-devot-table-list');
+  if (!el) return;
+  const students = APP.students.filter(s =>
+    String(s["Table No"]) === String(tableNo) &&
+    (s["Status"]||"Active").toLowerCase() !== "dropped"
+  ).sort((a, b) => getDevotionalCount(b["Student ID"]) - getDevotionalCount(a["Student ID"]));
+
+  el.innerHTML = students.map((s, i) => {
+    const done = getDevotionalCount(s["Student ID"]);
+    const pct  = Math.round((done / TOTAL_DEVOTIONAL_DAYS) * 100);
+    const badgeColor = pct >= 80 ? '#2d6a4f' : pct >= 50 ? '#c9960c' : '#e53935';
+    return `
+      <div class="row" style="align-items:center;padding:12px 0">
+        <div style="width:28px;height:28px;border-radius:50%;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#666;flex-shrink:0;margin-right:10px">#${i+1}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:14px">${s["Full Name"]}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${done} / ${TOTAL_DEVOTIONAL_DAYS} days completed</div>
+          <div style="height:4px;background:#e0e0e0;border-radius:4px;margin-top:4px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${badgeColor};border-radius:4px"></div>
+          </div>
+        </div>
+        <div style="background:${badgeColor}1a;color:${badgeColor};font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;margin-left:10px;white-space:nowrap">${pct}%</div>
+      </div>`;
+  }).join('') || '<p style="padding:16px;color:var(--gray)">No students found.</p>';
+}
+
+
 
 // ═══════════════════════════════════════════
 // CREDIT CALCULATION
@@ -880,6 +1114,26 @@ async function onQRCodeScanned(decodedText) {
 async function scanQR(id) {
   const student = APP.students.find(s => String(s['Student ID']) === String(id));
   if (!student) return;
+
+  // Check if already scanned this week
+  const alreadyScanned = APP.attendance.find(a =>
+    String(a['Student ID']) === String(id) &&
+    String(a['Week No']) === String(APP.currentWeek)
+  );
+  if (alreadyScanned) {
+    const prevStatus = alreadyScanned['Attendance Status'] || alreadyScanned['Status'] || 'Present';
+    setScanStatus('error', student['Full Name'] + ' already recorded as ' + prevStatus + ' this week');
+    const resultEl = document.getElementById('qr-result');
+    if (resultEl) resultEl.innerHTML = `
+      <div style="background:#fff3cd;padding:14px 16px;border-radius:12px;border-left:4px solid #e8a020;margin-top:8px;display:flex;gap:10px;align-items:flex-start">
+        <span style="font-size:20px">⚠️</span>
+        <div><strong>${student['Full Name']}</strong><br><span style="font-size:12px;color:#666">Already recorded as <strong>${prevStatus}</strong> for Week ${APP.currentWeek}.</span></div>
+      </div>`;
+    showToast('⚠️ Already scanned — ' + student['Full Name']);
+    return;
+  }
+
+  const status = getAttendanceStatusByTime();
   setScanStatus('scanning', 'Saving attendance for ' + student['Full Name'] + '…');
 
   await apiPost({
@@ -892,21 +1146,35 @@ async function scanQR(id) {
     studentName:student['Full Name'], age:student['Age']||'',
     gender:student['Gender']||'', lgLeader:student['LG Leader']||'',
     networkLeader:student['Network Leader']||'', tableNo:student['Table No'],
-    weekNo:APP.currentWeek, status:'Present', remarks:''
+    weekNo:APP.currentWeek, status:status, remarks:''
   });
 
-  setScanStatus('success', student['Full Name'] + ' marked PRESENT ✓');
+  // Show alert with rules reminder
+  const alertMsg = getAttendanceAlertMessage(status);
+  const statusColors = { Present: { bg:'#e8f5ee', border:'#2d6a4f', icon:'✅' }, Late: { bg:'#fff5e0', border:'#c9960c', icon:'⏰' }, Absent: { bg:'#fdecea', border:'#e53935', icon:'❌' } };
+  const sc = statusColors[status] || statusColors['Present'];
+
+  setScanStatus(status === 'Present' ? 'success' : (status === 'Late' ? 'scanning' : 'error'), student['Full Name'] + ' — ' + status + ' ✓');
   const resultEl = document.getElementById('qr-result');
   if (resultEl) resultEl.innerHTML = `
-    <div style="background:#e8f5ee;padding:14px 16px;border-radius:12px;border-left:4px solid #2d6a4f;margin-top:8px;display:flex;gap:10px;align-items:center">
-      <span style="font-size:28px">✅</span>
+    <div style="background:${sc.bg};padding:14px 16px;border-radius:12px;border-left:4px solid ${sc.border};margin-top:8px;display:flex;gap:10px;align-items:center">
+      <span style="font-size:28px">${sc.icon}</span>
       <div>
         <div style="font-weight:700;font-size:15px;color:#1a3a2a">${student['Full Name']}</div>
-        <div style="font-size:12px;color:#2d6a4f">Marked <strong>PRESENT</strong> — Week ${APP.currentWeek} · Table ${student['Table No']}</div>
+        <div style="font-size:12px;color:${sc.border}">Marked <strong>${status}</strong> — Week ${APP.currentWeek} · Table ${student['Table No']}</div>
         <div style="font-size:11px;color:#666;margin-top:2px">${new Date().toLocaleTimeString()}</div>
+        ${status === 'Late' ? '<div style="font-size:11px;color:#c9960c;margin-top:3px">⚠️ 3 unexcused late = 1 Absent</div>' : ''}
+        ${status === 'Absent' ? '<div style="font-size:11px;color:#e53935;margin-top:3px">⚠️ 3 unexcused absences = Drop</div>' : ''}
       </div>
     </div>`;
-  showToast('✅ ' + student['Full Name'] + ' — Present');
+
+  // Show alert popup for Late/Absent
+  if (status === 'Late' || status === 'Absent') {
+    setTimeout(() => alert(alertMsg), 300);
+  }
+
+  showToast((status === 'Present' ? '✅' : status === 'Late' ? '⏰' : '❌') + ' ' + student['Full Name'] + ' — ' + status);
+  await loadAllData();
 }
 
 async function scanFacultyQR(id) {
@@ -940,8 +1208,49 @@ async function scanFacultyQR(id) {
 }
 
 // ═══════════════════════════════════════════
-// QR GENERATOR — uses qrcode.js reliably via img tag
+// MARK UNSCANNED STUDENTS AS ABSENT
 // ═══════════════════════════════════════════
+async function markUnscannedAbsent() {
+  const week = APP.currentWeek;
+  const activeStudents = APP.students.filter(s => (s['Status'] || 'Active').toLowerCase() !== 'dropped');
+  const scannedIds = new Set(
+    APP.attendance
+      .filter(a => String(a['Week No']) === String(week))
+      .map(a => String(a['Student ID']))
+  );
+  const unscanned = activeStudents.filter(s => !scannedIds.has(String(s['Student ID'])));
+
+  if (!unscanned.length) {
+    showToast('✅ All students already have attendance for Week ' + week);
+    return;
+  }
+
+  const confirmed = confirm(`Mark ${unscanned.length} unscanned student(s) as ABSENT for Week ${week}?\n\nStudents:\n${unscanned.map(s => '• ' + s['Full Name']).join('\n')}`);
+  if (!confirmed) return;
+
+  const btn = document.getElementById('mark-absent-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+  let count = 0;
+  for (const student of unscanned) {
+    try {
+      await apiPost({
+        action:'addAttendance', studentId:student['Student ID'],
+        studentName:student['Full Name'], age:student['Age']||'',
+        gender:student['Gender']||'', lgLeader:student['LG Leader']||'',
+        networkLeader:student['Network Leader']||'', tableNo:student['Table No'],
+        weekNo:week, status:'Absent', remarks:'Auto-marked (unscanned)'
+      });
+      count++;
+    } catch(e) { console.error('Failed to mark absent:', student['Full Name'], e); }
+  }
+
+  showToast(`✅ ${count} student(s) marked Absent for Week ${week}`);
+  if (btn) { btn.disabled = false; btn.textContent = '📋 Mark Unscanned as Absent'; }
+  await loadAllData();
+}
+
+
 let qrGenCurrentId   = null;
 let qrGenCurrentName = null;
 
@@ -1394,7 +1703,7 @@ function updateFacultyHome() {
   ['f-students-topbar','f-payment-topbar','f-credits-topbar'].forEach(id => {
     const el = document.getElementById(id);
     if (el && tableNo) {
-      const labels = { 'f-students-topbar': 'Students', 'f-payment-topbar': 'Payment', 'f-credits-topbar': 'LC Credits' };
+      const labels = { 'f-students-topbar': 'Attendance', 'f-payment-topbar': 'Payment', 'f-credits-topbar': 'LC Credits' };
       el.textContent = `Table ${tableNo} — ${labels[id]}`;
     }
   });
@@ -1467,9 +1776,13 @@ function renderRecordStats() {
   if (!el) return;
   const activeStudents = APP.students.filter(s => (s["Status"] || "Active").toLowerCase() !== "dropped");
   const totalPaid = activeStudents.filter(s => getStudentPayment(s["Student ID"]).status === "Paid").length;
+  const totalPaymentsAmount = APP.payments.reduce((sum, p) => sum + Number(p["Amount Paid"] || 0), 0);
+  const totalUnpaid = activeStudents.filter(s => getStudentPayment(s["Student ID"]).status === "Unpaid").length;
   el.innerHTML = `
     <div class="stat-card"><div class="stat-val">${activeStudents.length}</div><div class="stat-label">Total Students</div></div>
-    <div class="stat-card"><div class="stat-val">${totalPaid}</div><div class="stat-label">Fully Paid</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--green)">${totalPaid}</div><div class="stat-label">Fully Paid</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:#6b2d5e">₱${totalPaymentsAmount.toLocaleString()}</div><div class="stat-label">Total Collected</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:${totalUnpaid > 0 ? '#e53935' : 'var(--green)'}">${totalUnpaid}</div><div class="stat-label">Unpaid</div></div>
   `;
 }
 
@@ -1547,14 +1860,21 @@ function renderBalancesSummary() {
   const summaryEl = document.getElementById('r-bal-summary');
   if (!summaryEl) return;
 
-  const paid    = APP.students.filter(s => getStudentPayment(s["Student ID"]).status === "Paid").length;
-  const partial = APP.students.filter(s => getStudentPayment(s["Student ID"]).status === "Partial").length;
-  const unpaid  = APP.students.filter(s => getStudentPayment(s["Student ID"]).status === "Unpaid").length;
+  const activeStudents = APP.students.filter(s => (s["Status"]||"Active").toLowerCase() !== "dropped");
+  const paid    = activeStudents.filter(s => getStudentPayment(s["Student ID"]).status === "Paid").length;
+  const partial = activeStudents.filter(s => getStudentPayment(s["Student ID"]).status === "Partial").length;
+  const unpaid  = activeStudents.filter(s => getStudentPayment(s["Student ID"]).status === "Unpaid").length;
+  const totalCollected = APP.payments.reduce((sum, p) => sum + Number(p["Amount Paid"] || 0), 0);
+  const totalExpected  = activeStudents.length * APP.totalFee;
 
   summaryEl.innerHTML = `
     <div class="stat-card"><div class="stat-val" style="color:var(--green)">${paid}</div><div class="stat-label">Fully Paid</div></div>
     <div class="stat-card"><div class="stat-val" style="color:#e8a020">${partial}</div><div class="stat-label">Partial</div></div>
     <div class="stat-card"><div class="stat-val" style="color:var(--red,#e53935)">${unpaid}</div><div class="stat-label">Unpaid</div></div>
+    <div class="stat-card" style="grid-column:1/-1;background:linear-gradient(135deg,#f3e8ff,#ede0f8)">
+      <div class="stat-val" style="color:#6b2d5e">₱${totalCollected.toLocaleString()}</div>
+      <div class="stat-label">Total Collected of ₱${totalExpected.toLocaleString()} expected</div>
+    </div>
   `;
 }
 
