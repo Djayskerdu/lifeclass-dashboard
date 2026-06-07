@@ -59,7 +59,9 @@ let APP = {
   selectedReason: 'Attendance',
   currentWeek: 1,
   totalFee: 500,
-  devotionals: {}  // studentId -> Set of completed day numbers (1-63)
+  devotionals: {},   // studentId -> Set of completed day numbers (1-63)
+  activities: {},    // studentId -> Set of completed day numbers (1-63)
+  makeupStatus: {}   // attendanceId -> { status, notes }
 };
 
 // ═══════════════════════════════════════════
@@ -99,31 +101,102 @@ function getAttendanceAlertMessage(status) {
 // DEVOTIONAL HELPERS — stored locally
 // ═══════════════════════════════════════════
 const DEVOTIONAL_KEY_PREFIX = 'lc_devot_';
+const ACTIVITY_KEY_PREFIX   = 'lc_activ_';
 const TOTAL_DEVOTIONAL_DAYS = 63;
 
-function loadDevotionals() {
-  APP.students.forEach(s => {
-    const key = DEVOTIONAL_KEY_PREFIX + s['Student ID'];
-    try {
-      const saved = localStorage.getItem(key);
-      APP.devotionals[s['Student ID']] = saved ? new Set(JSON.parse(saved)) : new Set();
-    } catch(e) {
-      APP.devotionals[s['Student ID']] = new Set();
+// ── Devotionals (synced to Google Sheets) ───────────────────
+function loadDevotionalsFromSheet(sheetRows) {
+  APP.students.forEach(s => { APP.devotionals[s['Student ID']] = new Set(); });
+  (sheetRows || []).forEach(row => {
+    const sid = String(row['Student ID'] || '');
+    const day = Number(row['Day No']);
+    if (sid && day && (row['Completed'] === 'Yes' || row['Completed'] === true)) {
+      if (!APP.devotionals[sid]) APP.devotionals[sid] = new Set();
+      APP.devotionals[sid].add(day);
     }
   });
 }
 
-function saveDevotional(studentId, day, checked) {
+function loadActivitiesFromSheet(sheetRows) {
+  APP.students.forEach(s => { APP.activities[s['Student ID']] = new Set(); });
+  (sheetRows || []).forEach(row => {
+    const sid = String(row['Student ID'] || '');
+    const day = Number(row['Day No']);
+    if (sid && day && (row['Completed'] === 'Yes' || row['Completed'] === true)) {
+      if (!APP.activities[sid]) APP.activities[sid] = new Set();
+      APP.activities[sid].add(day);
+    }
+  });
+}
+
+// Fallback: load from localStorage (legacy / offline)
+function loadDevotionalsLocal() {
+  APP.students.forEach(s => {
+    if (APP.devotionals[s['Student ID']] && APP.devotionals[s['Student ID']].size > 0) return;
+    const key = DEVOTIONAL_KEY_PREFIX + s['Student ID'];
+    try {
+      const saved = localStorage.getItem(key);
+      APP.devotionals[s['Student ID']] = saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch(e) { APP.devotionals[s['Student ID']] = new Set(); }
+  });
+}
+
+function loadActivitiesLocal() {
+  APP.students.forEach(s => {
+    if (APP.activities[s['Student ID']] && APP.activities[s['Student ID']].size > 0) return;
+    const key = ACTIVITY_KEY_PREFIX + s['Student ID'];
+    try {
+      const saved = localStorage.getItem(key);
+      APP.activities[s['Student ID']] = saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch(e) { APP.activities[s['Student ID']] = new Set(); }
+  });
+}
+
+async function saveDevotional(studentId, day, checked) {
   if (!APP.devotionals[studentId]) APP.devotionals[studentId] = new Set();
   if (checked) APP.devotionals[studentId].add(day);
   else APP.devotionals[studentId].delete(day);
+  // local backup
+  try { localStorage.setItem(DEVOTIONAL_KEY_PREFIX + studentId, JSON.stringify([...APP.devotionals[studentId]])); } catch(e) {}
+  // sync to sheet
+  const student = APP.students.find(s => String(s['Student ID']) === String(studentId));
   try {
-    localStorage.setItem(DEVOTIONAL_KEY_PREFIX + studentId, JSON.stringify([...APP.devotionals[studentId]]));
-  } catch(e) {}
+    await apiPost({ action: 'toggleDevotional', studentId, studentName: student?.['Full Name'] || '', tableNo: student?.['Table No'] || '', dayNo: day, completed: checked, markedBy: APP.currentFaculty?.['Full Name'] || '' });
+  } catch(e) { console.warn('Devotional sync failed:', e); }
+}
+
+async function saveActivity(studentId, day, checked) {
+  if (!APP.activities[studentId]) APP.activities[studentId] = new Set();
+  if (checked) APP.activities[studentId].add(day);
+  else APP.activities[studentId].delete(day);
+  try { localStorage.setItem(ACTIVITY_KEY_PREFIX + studentId, JSON.stringify([...APP.activities[studentId]])); } catch(e) {}
+  const student = APP.students.find(s => String(s['Student ID']) === String(studentId));
+  try {
+    await apiPost({ action: 'toggleActivity', studentId, studentName: student?.['Full Name'] || '', tableNo: student?.['Table No'] || '', dayNo: day, completed: checked, markedBy: APP.currentFaculty?.['Full Name'] || '' });
+  } catch(e) { console.warn('Activity sync failed:', e); }
 }
 
 function getDevotionalCount(studentId) {
   return APP.devotionals[studentId] ? APP.devotionals[studentId].size : 0;
+}
+function getActivityCount(studentId) {
+  return APP.activities[studentId] ? APP.activities[studentId].size : 0;
+}
+
+// ── Makeup Status ────────────────────────────────────────────
+function loadMakeupStatusFromSheet(rows) {
+  APP.makeupStatus = {};
+  (rows || []).forEach(row => {
+    const attId = String(row['Attendance ID'] || '');
+    if (attId) APP.makeupStatus[attId] = { status: row['Status'] || 'Pending', notes: row['Notes'] || '' };
+  });
+}
+
+async function saveMakeupStatus(attendanceId, status, studentId, studentName, weekNo, tableNo, notes) {
+  APP.makeupStatus[attendanceId] = { status, notes: notes || '' };
+  try {
+    await apiPost({ action: 'updateMakeupStatus', attendanceId, studentId, studentName, weekNo, tableNo, status, updatedBy: APP.currentFaculty?.['Full Name'] || 'Admin', notes: notes || '' });
+  } catch(e) { console.warn('Makeup status sync failed:', e); }
 }
 
 // ═══════════════════════════════════════════
@@ -158,7 +231,10 @@ async function loadAllData() {
     apiGet('lessonWeeks'),
     apiGet('qrscans'),
     apiGet('tableGuides'),
-    apiGet('settings')
+    apiGet('settings'),
+    apiGet('devotionals'),
+    apiGet('activities'),
+    apiGet('makeupStatus')
   ]);
 
   APP.students          = safeData(results[0]);
@@ -178,9 +254,18 @@ async function loadAllData() {
     APP.totalFee    = Number(APP.settings['Total Class Fee'] || 500);
   }
 
-  const failCount = results.filter(r => r.status === 'rejected').length;
+  const devotionalRows = safeData(results[10]);
+  const activityRows   = safeData(results[11]);
+  const makeupRows     = safeData(results[12]);
 
-  loadDevotionals();
+  loadDevotionalsFromSheet(devotionalRows);
+  loadActivitiesFromSheet(activityRows);
+  loadDevotionalsLocal();   // fill blanks from localStorage (offline fallback)
+  loadActivitiesLocal();
+  loadMakeupStatusFromSheet(makeupRows);
+
+  const failCount = results.slice(0, 10).filter(r => r.status === 'rejected').length;
+
   populateCreditStudentSelect();
   populatePayStudentSelect();
   populateWeekDropdowns();
@@ -418,9 +503,9 @@ function renderFStudents() {
 }
 
 // ═══════════════════════════════════════════
-// FACULTY — DEVOTIONAL & ACTIVITIES
+// FACULTY — DEVOTIONAL & ACTIVITIES (Student List)
 // ═══════════════════════════════════════════
-let devotionalCurrentStudent = null;
+let devotActCurrentStudent = null;
 
 function renderFDevotional() {
   const el = document.getElementById('f-devotional-list');
@@ -435,15 +520,27 @@ function renderFDevotional() {
     return;
   }
   el.innerHTML = filtered.map(s => {
-    const done = getDevotionalCount(s["Student ID"]);
-    const pct  = Math.round((done / TOTAL_DEVOTIONAL_DAYS) * 100);
+    const devotDone = getDevotionalCount(s["Student ID"]);
+    const devotPct  = Math.round((devotDone / TOTAL_DEVOTIONAL_DAYS) * 100);
+    const activDone = getActivityCount(s["Student ID"]);
+    const activPct  = Math.round((activDone / TOTAL_DEVOTIONAL_DAYS) * 100);
     return `
-      <button class="row" style="align-items:center;width:100%;text-align:left;background:none;border:none;cursor:pointer;padding:12px 0;border-bottom:1px solid #f0f0f0" onclick="openDevotionalDetail('${s["Student ID"]}')">
+      <button class="row" style="align-items:center;width:100%;text-align:left;background:none;border:none;cursor:pointer;padding:12px 0;border-bottom:1px solid #f0f0f0" onclick="openDevotActDetail('${s["Student ID"]}')">
         <div style="flex:1">
           <div style="font-weight:600;font-size:14px">${s["Full Name"]}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px">Table ${s["Table No"]} · ${done}/${TOTAL_DEVOTIONAL_DAYS} days completed (${pct}%)</div>
-          <div style="height:4px;background:#e0e0e0;border-radius:4px;margin-top:5px;overflow:hidden">
-            <div style="height:100%;width:${pct}%;background:${pct >= 80 ? '#2d6a4f' : pct >= 50 ? '#c9960c' : '#e53935'};border-radius:4px;transition:width 0.3s"></div>
+          <div style="display:flex;gap:12px;margin-top:4px">
+            <div style="flex:1">
+              <div style="font-size:10px;color:#2d6a4f;font-weight:600;margin-bottom:2px">📖 Devotionals ${devotDone}/${TOTAL_DEVOTIONAL_DAYS}</div>
+              <div style="height:4px;background:#e0e0e0;border-radius:4px;overflow:hidden">
+                <div style="height:100%;width:${devotPct}%;background:${devotPct >= 80 ? '#2d6a4f' : devotPct >= 50 ? '#c9960c' : '#e53935'};border-radius:4px;transition:width 0.3s"></div>
+              </div>
+            </div>
+            <div style="flex:1">
+              <div style="font-size:10px;color:#7c3aed;font-weight:600;margin-bottom:2px">⚡ Activities ${activDone}/${TOTAL_DEVOTIONAL_DAYS}</div>
+              <div style="height:4px;background:#e0e0e0;border-radius:4px;overflow:hidden">
+                <div style="height:100%;width:${activPct}%;background:${activPct >= 80 ? '#7c3aed' : activPct >= 50 ? '#c9960c' : '#e53935'};border-radius:4px;transition:width 0.3s"></div>
+              </div>
+            </div>
           </div>
         </div>
         <svg viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="width:16px;height:16px;margin-left:10px;flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
@@ -451,81 +548,138 @@ function renderFDevotional() {
   }).join('');
 }
 
-function openDevotionalDetail(studentId) {
+function openDevotActDetail(studentId) {
   const student = APP.students.find(s => String(s["Student ID"]) === String(studentId));
   if (!student) return;
-  devotionalCurrentStudent = studentId;
+  devotActCurrentStudent = studentId;
   const el = document.getElementById('f-devot-detail-name');
-  if (el) el.textContent = student["Full Name"] + ' — Devotional & Activities';
-  renderDevotionalChecklist(studentId);
+  if (el) el.textContent = student["Full Name"];
+  renderDevotActChecklist(studentId);
   go('s-f-devot-detail');
 }
 
-function renderDevotionalChecklist(studentId) {
+// Render BOTH devotional + activity checklists separately (tab-based or stacked)
+function renderDevotActChecklist(studentId) {
   const el = document.getElementById('f-devot-checklist');
   if (!el) return;
-  const completed = APP.devotionals[studentId] || new Set();
-  let html = '';
+  const devotDone = APP.devotionals[studentId] || new Set();
+  const activDone = APP.activities[studentId] || new Set();
+  const devotCount = devotDone.size;
+  const activCount = activDone.size;
+
+  const counter = document.getElementById('f-devot-counter');
+  if (counter) counter.textContent = `📖 ${devotCount} · ⚡ ${activCount} / ${TOTAL_DEVOTIONAL_DAYS}`;
+
+  let devotHtml = '';
+  let activHtml = '';
+  const dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
   for (let day = 1; day <= TOTAL_DEVOTIONAL_DAYS; day++) {
-    const checked = completed.has(day);
     const week = Math.ceil(day / 7);
-    const dayInWeek = ((day - 1) % 7) + 1;
-    const dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-    html += `
-      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:${checked ? '#e8f5ee' : '#fafafa'};margin-bottom:6px;cursor:pointer;border:1.5px solid ${checked ? '#2d6a4f' : '#e8e8e8'};transition:all 0.2s">
-        <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleDevotional('${studentId}', ${day}, this.checked)" style="width:18px;height:18px;accent-color:#2d6a4f;cursor:pointer">
+    const dayName = dayNames[(day - 1) % 7];
+    const dChecked = devotDone.has(day);
+    const aChecked = activDone.has(day);
+
+    devotHtml += `
+      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:${dChecked ? '#e8f5ee' : '#fafafa'};margin-bottom:6px;cursor:pointer;border:1.5px solid ${dChecked ? '#2d6a4f' : '#e8e8e8'};transition:all 0.2s">
+        <input type="checkbox" ${dChecked ? 'checked' : ''} onchange="toggleDevot('${studentId}', ${day}, this.checked)" style="width:18px;height:18px;accent-color:#2d6a4f;cursor:pointer">
         <div style="flex:1">
           <span style="font-weight:600;font-size:13px">Day ${day}</span>
-          <span style="color:var(--text3);font-size:11px;margin-left:8px">Week ${week} · ${dayNames[(dayInWeek - 1) % 7]}</span>
+          <span style="color:var(--text3);font-size:11px;margin-left:8px">Wk ${week} · ${dayName}</span>
         </div>
-        ${checked ? '<span style="color:#2d6a4f;font-size:13px;font-weight:700">✓</span>' : ''}
+        ${dChecked ? '<span style="color:#2d6a4f;font-size:13px;font-weight:700">✓</span>' : ''}
+      </label>`;
+
+    activHtml += `
+      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:${aChecked ? '#f0ebff' : '#fafafa'};margin-bottom:6px;cursor:pointer;border:1.5px solid ${aChecked ? '#7c3aed' : '#e8e8e8'};transition:all 0.2s">
+        <input type="checkbox" ${aChecked ? 'checked' : ''} onchange="toggleActiv('${studentId}', ${day}, this.checked)" style="width:18px;height:18px;accent-color:#7c3aed;cursor:pointer">
+        <div style="flex:1">
+          <span style="font-weight:600;font-size:13px">Day ${day}</span>
+          <span style="color:var(--text3);font-size:11px;margin-left:8px">Wk ${week} · ${dayName}</span>
+        </div>
+        ${aChecked ? '<span style="color:#7c3aed;font-size:13px;font-weight:700">✓</span>' : ''}
       </label>`;
   }
-  el.innerHTML = html;
-  // Update counter
-  const counter = document.getElementById('f-devot-counter');
-  if (counter) counter.textContent = `${completed.size}/${TOTAL_DEVOTIONAL_DAYS} completed`;
+
+  el.innerHTML = `
+    <!-- DEVOTIONALS BOX -->
+    <div style="background:linear-gradient(135deg,#2d6a4f22,#52b78822);border-radius:12px;padding:12px 14px;margin-bottom:14px;border:1.5px solid #2d6a4f55">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:14px;font-weight:700;color:#2d6a4f">📖 Devotionals</div>
+        <div style="font-size:12px;color:#2d6a4f;font-weight:600;background:#2d6a4f22;padding:3px 10px;border-radius:20px">${devotCount}/${TOTAL_DEVOTIONAL_DAYS} done</div>
+      </div>
+      <div style="height:6px;background:#e0e0e0;border-radius:6px;margin-bottom:10px;overflow:hidden">
+        <div style="height:100%;width:${Math.round(devotCount/TOTAL_DEVOTIONAL_DAYS*100)}%;background:#2d6a4f;border-radius:6px;transition:width 0.3s"></div>
+      </div>
+      <div id="devot-day-list">${devotHtml}</div>
+    </div>
+    <!-- ACTIVITIES BOX -->
+    <div style="background:linear-gradient(135deg,#7c3aed22,#a78bfa22);border-radius:12px;padding:12px 14px;margin-bottom:14px;border:1.5px solid #7c3aed55">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:14px;font-weight:700;color:#7c3aed">⚡ Activities</div>
+        <div style="font-size:12px;color:#7c3aed;font-weight:600;background:#7c3aed22;padding:3px 10px;border-radius:20px">${activCount}/${TOTAL_DEVOTIONAL_DAYS} done</div>
+      </div>
+      <div style="height:6px;background:#e0e0e0;border-radius:6px;margin-bottom:10px;overflow:hidden">
+        <div style="height:100%;width:${Math.round(activCount/TOTAL_DEVOTIONAL_DAYS*100)}%;background:#7c3aed;border-radius:6px;transition:width 0.3s"></div>
+      </div>
+      <div id="activ-day-list">${activHtml}</div>
+    </div>`;
 }
 
-function toggleDevotional(studentId, day, checked) {
+function toggleDevot(studentId, day, checked) {
   saveDevotional(studentId, day, checked);
-  // Re-render just the counter and this item
-  const completed = APP.devotionals[studentId] || new Set();
+  const devotDone = APP.devotionals[studentId] || new Set();
+  const activDone = APP.activities[studentId] || new Set();
   const counter = document.getElementById('f-devot-counter');
-  if (counter) counter.textContent = `${completed.size}/${TOTAL_DEVOTIONAL_DAYS} completed`;
-  // Update label background
-  const labels = document.querySelectorAll('#f-devot-checklist label');
+  if (counter) counter.textContent = `📖 ${devotDone.size} · ⚡ ${activDone.size} / ${TOTAL_DEVOTIONAL_DAYS}`;
+  // Update this checkbox's label
+  const labels = document.querySelectorAll('#devot-day-list label');
   labels.forEach((lbl, idx) => {
-    const dayNum = idx + 1;
-    const isChecked = (APP.devotionals[studentId] || new Set()).has(dayNum);
-    lbl.style.background = isChecked ? '#e8f5ee' : '#fafafa';
-    lbl.style.borderColor = isChecked ? '#2d6a4f' : '#e8e8e8';
+    const d = idx + 1;
+    const ok = (APP.devotionals[studentId] || new Set()).has(d);
+    lbl.style.background = ok ? '#e8f5ee' : '#fafafa';
+    lbl.style.borderColor = ok ? '#2d6a4f' : '#e8e8e8';
   });
-  // Refresh list view too
-  const listEl = document.getElementById('f-devotional-list');
-  if (listEl) renderFDevotional();
+  renderFDevotional();
+}
+
+function toggleActiv(studentId, day, checked) {
+  saveActivity(studentId, day, checked);
+  const devotDone = APP.devotionals[studentId] || new Set();
+  const activDone = APP.activities[studentId] || new Set();
+  const counter = document.getElementById('f-devot-counter');
+  if (counter) counter.textContent = `📖 ${devotDone.size} · ⚡ ${activDone.size} / ${TOTAL_DEVOTIONAL_DAYS}`;
+  const labels = document.querySelectorAll('#activ-day-list label');
+  labels.forEach((lbl, idx) => {
+    const d = idx + 1;
+    const ok = (APP.activities[studentId] || new Set()).has(d);
+    lbl.style.background = ok ? '#f0ebff' : '#fafafa';
+    lbl.style.borderColor = ok ? '#7c3aed' : '#e8e8e8';
+  });
+  renderFDevotional();
 }
 
 // ═══════════════════════════════════════════
-// ADMIN — DEVOTIONAL RECORDS VIEW
+// ADMIN — DEVOTIONAL & ACTIVITIES RECORDS VIEW
 // ═══════════════════════════════════════════
 function renderADevotionalTables() {
   const el = document.getElementById('a-devot-tables');
   if (!el) return;
-  // Get all tables
   const tableNos = [...new Set(APP.students.map(s => String(s["Table No"])))].filter(Boolean).sort();
   el.innerHTML = tableNos.map(tno => {
     const students = APP.students.filter(s => String(s["Table No"]) === tno && (s["Status"]||"Active").toLowerCase() !== "dropped");
-    const totalStudents = students.length;
-    const totalDone = students.reduce((sum, s) => sum + getDevotionalCount(s["Student ID"]), 0);
-    const maxPossible = totalStudents * TOTAL_DEVOTIONAL_DAYS;
-    const pct = maxPossible > 0 ? Math.round((totalDone / maxPossible) * 100) : 0;
+    const totalS = students.length;
+    const totalDevot = students.reduce((sum, s) => sum + getDevotionalCount(s["Student ID"]), 0);
+    const totalActiv = students.reduce((sum, s) => sum + getActivityCount(s["Student ID"]), 0);
+    const maxPossible = totalS * TOTAL_DEVOTIONAL_DAYS;
+    const devotPct = maxPossible > 0 ? Math.round((totalDevot / maxPossible) * 100) : 0;
+    const activPct = maxPossible > 0 ? Math.round((totalActiv / maxPossible) * 100) : 0;
     return `
       <button class="menu-item" onclick="openADevotTable('${tno}')" style="margin-bottom:8px">
         <div class="mi-icon" style="background:#e8f5ee"><svg viewBox="0 0 24 24" stroke="#2d6a4f" fill="none"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg></div>
         <div class="mi-text">
-          <div class="mi-title">Table ${tno}</div>
-          <div class="mi-sub">${totalStudents} students · ${totalDone} total devotional days (${pct}%)</div>
+          <div class="mi-title">Table ${tno} — ${totalS} students</div>
+          <div class="mi-sub">📖 ${devotPct}% devotionals · ⚡ ${activPct}% activities</div>
         </div>
         <svg class="mi-arr" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
       </button>`;
@@ -534,7 +688,7 @@ function renderADevotionalTables() {
 
 function openADevotTable(tableNo) {
   const el = document.getElementById('a-devot-table-title');
-  if (el) el.textContent = `Table ${tableNo} — Devotional Records`;
+  if (el) el.textContent = `Table ${tableNo} — Devotionals & Activities`;
   renderADevotTableStudents(tableNo);
   go('s-a-devot-table');
 }
@@ -545,31 +699,37 @@ function renderADevotTableStudents(tableNo) {
   const students = APP.students.filter(s =>
     String(s["Table No"]) === String(tableNo) &&
     (s["Status"]||"Active").toLowerCase() !== "dropped"
-  ).sort((a, b) => getDevotionalCount(b["Student ID"]) - getDevotionalCount(a["Student ID"]));
+  ).sort((a, b) => (getDevotionalCount(b["Student ID"]) + getActivityCount(b["Student ID"])) - (getDevotionalCount(a["Student ID"]) + getActivityCount(a["Student ID"])));
 
   el.innerHTML = students.map((s, i) => {
-    const done = getDevotionalCount(s["Student ID"]);
-    const pct  = Math.round((done / TOTAL_DEVOTIONAL_DAYS) * 100);
-    const badgeColor = pct >= 80 ? '#2d6a4f' : pct >= 50 ? '#c9960c' : '#e53935';
+    const devotDone = getDevotionalCount(s["Student ID"]);
+    const activDone = getActivityCount(s["Student ID"]);
+    const devotPct  = Math.round((devotDone / TOTAL_DEVOTIONAL_DAYS) * 100);
+    const activPct  = Math.round((activDone / TOTAL_DEVOTIONAL_DAYS) * 100);
     return `
-      <div class="row" style="align-items:center;padding:12px 0">
-        <div style="width:28px;height:28px;border-radius:50%;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#666;flex-shrink:0;margin-right:10px">#${i+1}</div>
-        <div style="flex:1;min-width:0">
+      <div class="row" style="align-items:flex-start;padding:12px 0;flex-direction:column">
+        <div style="display:flex;align-items:center;width:100%;margin-bottom:8px">
+          <div style="width:26px;height:26px;border-radius:50%;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;color:#666;flex-shrink:0;margin-right:10px">#${i+1}</div>
           <div style="font-weight:600;font-size:14px">${s["Full Name"]}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px">${done} / ${TOTAL_DEVOTIONAL_DAYS} days completed</div>
-          <div style="height:4px;background:#e0e0e0;border-radius:4px;margin-top:4px;overflow:hidden">
-            <div style="height:100%;width:${pct}%;background:${badgeColor};border-radius:4px"></div>
+        </div>
+        <div style="display:flex;gap:12px;width:100%;padding-left:36px">
+          <div style="flex:1">
+            <div style="font-size:10px;color:#2d6a4f;font-weight:600;margin-bottom:3px">📖 Devotionals ${devotDone}/${TOTAL_DEVOTIONAL_DAYS} (${devotPct}%)</div>
+            <div style="height:5px;background:#e0e0e0;border-radius:5px;overflow:hidden">
+              <div style="height:100%;width:${devotPct}%;background:#2d6a4f;border-radius:5px"></div>
+            </div>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:10px;color:#7c3aed;font-weight:600;margin-bottom:3px">⚡ Activities ${activDone}/${TOTAL_DEVOTIONAL_DAYS} (${activPct}%)</div>
+            <div style="height:5px;background:#e0e0e0;border-radius:5px;overflow:hidden">
+              <div style="height:100%;width:${activPct}%;background:#7c3aed;border-radius:5px"></div>
+            </div>
           </div>
         </div>
-        <div style="background:${badgeColor}1a;color:${badgeColor};font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;margin-left:10px;white-space:nowrap">${pct}%</div>
       </div>`;
   }).join('') || '<p style="padding:16px;color:var(--gray)">No students found.</p>';
 }
 
-
-
-// ═══════════════════════════════════════════
-// CREDIT CALCULATION
 // ═══════════════════════════════════════════
 function getStudentCredits(studentId) {
   return APP.credits
@@ -1757,16 +1917,45 @@ function renderMakeup() {
     el.innerHTML = '<p style="padding:16px;color:var(--gray)">No absences found.</p>';
     return;
   }
-  el.innerHTML = absences.map(a => `
-    <div class="row">
-      <div>
-        <strong>${a["Student Name"] || a["StudentName"] || "—"}</strong><br>
-        <small>Week ${a["Week No"]} · Table ${a["Table No"] || "—"}</small>
-      </div>
-      <div style="color:var(--red,#e53935)">Absent</div>
-    </div>
-  `).join('');
+
+  const statusColors = {
+    'Pending':   { bg: '#fdecea', color: '#e53935' },
+    'Scheduled': { bg: '#fff5e0', color: '#c9960c' },
+    'Done':      { bg: '#e8f5ee', color: '#2d6a4f' }
+  };
+
+  el.innerHTML = absences.map(a => {
+    const attId = String(a["Attendance ID"] || '');
+    const mkStatus = (APP.makeupStatus[attId]?.status) || 'Pending';
+    const { bg, color } = statusColors[mkStatus] || statusColors['Pending'];
+    return `
+      <div class="row" style="align-items:center;flex-wrap:wrap;gap:6px;padding:12px 0">
+        <div style="flex:1;min-width:120px">
+          <strong>${a["Student Name"] || a["StudentName"] || "—"}</strong><br>
+          <small style="color:var(--text3)">Week ${a["Week No"]} · Table ${a["Table No"] || "—"}</small>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <div style="background:${bg};color:${color};font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap">${mkStatus}</div>
+          <select onchange="doUpdateMakeupStatus('${attId}', this.value, '${a["Student ID"] || ""}', '${(a["Student Name"]||"").replace(/'/g,"\\'")}', ${a["Week No"] || 0}, '${a["Table No"] || ""}')"
+            style="font-size:11px;padding:4px 8px;border:1.5px solid ${color};border-radius:8px;background:#fff;color:${color};font-weight:600;cursor:pointer">
+            <option value="Pending"   ${mkStatus === 'Pending'   ? 'selected' : ''}>Pending</option>
+            <option value="Scheduled" ${mkStatus === 'Scheduled' ? 'selected' : ''}>Scheduled</option>
+            <option value="Done"      ${mkStatus === 'Done'      ? 'selected' : ''}>Done</option>
+          </select>
+        </div>
+      </div>`;
+  }).join('');
 }
+
+async function doUpdateMakeupStatus(attendanceId, status, studentId, studentName, weekNo, tableNo) {
+  if (!attendanceId) { showToast('⚠️ Cannot update — no attendance ID.'); return; }
+  showToast('⏳ Updating makeup status...');
+  await saveMakeupStatus(attendanceId, status, studentId, studentName, weekNo, tableNo, '');
+  renderMakeup();
+  showToast(`✅ Makeup status set to ${status}`);
+}
+
+
 
 // ═══════════════════════════════════════════
 // RECORD HOME STATS
