@@ -552,13 +552,46 @@ function openDevotActDetail(studentId) {
   const student = APP.students.find(s => String(s["Student ID"]) === String(studentId));
   if (!student) return;
   devotActCurrentStudent = studentId;
+  devotActActiveTab = 'devot'; // always start on Devotionals tab
   const el = document.getElementById('f-devot-detail-name');
   if (el) el.textContent = student["Full Name"];
   renderDevotActChecklist(studentId);
   go('s-f-devot-detail');
 }
 
-// Render BOTH devotional + activity checklists separately (tab-based or stacked)
+// Tab state for devotional detail screen
+let devotActActiveTab = 'devot'; // 'devot' or 'activ'
+
+function switchDevotTab(tab) {
+  devotActActiveTab = tab;
+  const devotTab = document.getElementById('devot-tab-btn');
+  const activTab = document.getElementById('activ-tab-btn');
+  const devotPanel = document.getElementById('devot-tab-panel');
+  const activPanel = document.getElementById('activ-tab-panel');
+  if (!devotTab || !activTab || !devotPanel || !activPanel) return;
+
+  if (tab === 'devot') {
+    devotTab.style.background = '#2d6a4f';
+    devotTab.style.color = '#fff';
+    devotTab.style.borderColor = '#2d6a4f';
+    activTab.style.background = '#fff';
+    activTab.style.color = '#7c3aed';
+    activTab.style.borderColor = '#e8e8e8';
+    devotPanel.style.display = '';
+    activPanel.style.display = 'none';
+  } else {
+    activTab.style.background = '#7c3aed';
+    activTab.style.color = '#fff';
+    activTab.style.borderColor = '#7c3aed';
+    devotTab.style.background = '#fff';
+    devotTab.style.color = '#2d6a4f';
+    devotTab.style.borderColor = '#e8e8e8';
+    devotPanel.style.display = 'none';
+    activPanel.style.display = '';
+  }
+}
+
+// Render BOTH devotional + activity checklists separately (tab-based)
 function renderDevotActChecklist(studentId) {
   const el = document.getElementById('f-devot-checklist');
   if (!el) return;
@@ -601,24 +634,31 @@ function renderDevotActChecklist(studentId) {
       </label>`;
   }
 
+  const devotIsActive = devotActActiveTab === 'devot';
+
   el.innerHTML = `
-    <!-- DEVOTIONALS BOX -->
-    <div style="background:linear-gradient(135deg,#2d6a4f22,#52b78822);border-radius:12px;padding:12px 14px;margin-bottom:14px;border:1.5px solid #2d6a4f55">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:14px;font-weight:700;color:#2d6a4f">📖 Devotionals</div>
-        <div style="font-size:12px;color:#2d6a4f;font-weight:600;background:#2d6a4f22;padding:3px 10px;border-radius:20px">${devotCount}/${TOTAL_DEVOTIONAL_DAYS} done</div>
-      </div>
+    <!-- TAB SWITCHER -->
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button id="devot-tab-btn" onclick="switchDevotTab('devot')"
+        style="flex:1;padding:10px 0;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:1.5px solid ${devotIsActive ? '#2d6a4f' : '#e8e8e8'};background:${devotIsActive ? '#2d6a4f' : '#fff'};color:${devotIsActive ? '#fff' : '#2d6a4f'};transition:all 0.2s">
+        📖 Devotionals<br><span style="font-size:11px;opacity:0.85">${devotCount}/${TOTAL_DEVOTIONAL_DAYS} done</span>
+      </button>
+      <button id="activ-tab-btn" onclick="switchDevotTab('activ')"
+        style="flex:1;padding:10px 0;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:1.5px solid ${!devotIsActive ? '#7c3aed' : '#e8e8e8'};background:${!devotIsActive ? '#7c3aed' : '#fff'};color:${!devotIsActive ? '#fff' : '#7c3aed'};transition:all 0.2s">
+        ⚡ Activities<br><span style="font-size:11px;opacity:0.85">${activCount}/${TOTAL_DEVOTIONAL_DAYS} done</span>
+      </button>
+    </div>
+
+    <!-- DEVOTIONALS PANEL -->
+    <div id="devot-tab-panel" style="display:${devotIsActive ? '' : 'none'}">
       <div style="height:6px;background:#e0e0e0;border-radius:6px;margin-bottom:10px;overflow:hidden">
         <div style="height:100%;width:${Math.round(devotCount/TOTAL_DEVOTIONAL_DAYS*100)}%;background:#2d6a4f;border-radius:6px;transition:width 0.3s"></div>
       </div>
       <div id="devot-day-list">${devotHtml}</div>
     </div>
-    <!-- ACTIVITIES BOX -->
-    <div style="background:linear-gradient(135deg,#7c3aed22,#a78bfa22);border-radius:12px;padding:12px 14px;margin-bottom:14px;border:1.5px solid #7c3aed55">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:14px;font-weight:700;color:#7c3aed">⚡ Activities</div>
-        <div style="font-size:12px;color:#7c3aed;font-weight:600;background:#7c3aed22;padding:3px 10px;border-radius:20px">${activCount}/${TOTAL_DEVOTIONAL_DAYS} done</div>
-      </div>
+
+    <!-- ACTIVITIES PANEL -->
+    <div id="activ-tab-panel" style="display:${!devotIsActive ? '' : 'none'}">
       <div style="height:6px;background:#e0e0e0;border-radius:6px;margin-bottom:10px;overflow:hidden">
         <div style="height:100%;width:${Math.round(activCount/TOTAL_DEVOTIONAL_DAYS*100)}%;background:#7c3aed;border-radius:6px;transition:width 0.3s"></div>
       </div>
@@ -632,14 +672,23 @@ function toggleDevot(studentId, day, checked) {
   const activDone = APP.activities[studentId] || new Set();
   const counter = document.getElementById('f-devot-counter');
   if (counter) counter.textContent = `📖 ${devotDone.size} · ⚡ ${activDone.size} / ${TOTAL_DEVOTIONAL_DAYS}`;
-  // Update this checkbox's label
+  // Update tab button count
+  const devotTabBtn = document.getElementById('devot-tab-btn');
+  if (devotTabBtn) devotTabBtn.innerHTML = `📖 Devotionals<br><span style="font-size:11px;opacity:0.85">${devotDone.size}/${TOTAL_DEVOTIONAL_DAYS} done</span>`;
+  // Update checkbox labels inline (no full re-render so tab stays open)
   const labels = document.querySelectorAll('#devot-day-list label');
   labels.forEach((lbl, idx) => {
     const d = idx + 1;
     const ok = (APP.devotionals[studentId] || new Set()).has(d);
     lbl.style.background = ok ? '#e8f5ee' : '#fafafa';
     lbl.style.borderColor = ok ? '#2d6a4f' : '#e8e8e8';
+    const tick = lbl.querySelector('span');
+    if (ok && !tick) { const s = document.createElement('span'); s.style.cssText='color:#2d6a4f;font-size:13px;font-weight:700'; s.textContent='✓'; lbl.appendChild(s); }
+    else if (!ok && tick) tick.remove();
   });
+  // Update progress bar
+  const bar = document.querySelector('#devot-tab-panel > div > div');
+  if (bar) bar.style.width = Math.round(devotDone.size/TOTAL_DEVOTIONAL_DAYS*100) + '%';
   renderFDevotional();
 }
 
@@ -649,13 +698,23 @@ function toggleActiv(studentId, day, checked) {
   const activDone = APP.activities[studentId] || new Set();
   const counter = document.getElementById('f-devot-counter');
   if (counter) counter.textContent = `📖 ${devotDone.size} · ⚡ ${activDone.size} / ${TOTAL_DEVOTIONAL_DAYS}`;
+  // Update tab button count
+  const activTabBtn = document.getElementById('activ-tab-btn');
+  if (activTabBtn) activTabBtn.innerHTML = `⚡ Activities<br><span style="font-size:11px;opacity:0.85">${activDone.size}/${TOTAL_DEVOTIONAL_DAYS} done</span>`;
+  // Update checkbox labels inline
   const labels = document.querySelectorAll('#activ-day-list label');
   labels.forEach((lbl, idx) => {
     const d = idx + 1;
     const ok = (APP.activities[studentId] || new Set()).has(d);
     lbl.style.background = ok ? '#f0ebff' : '#fafafa';
     lbl.style.borderColor = ok ? '#7c3aed' : '#e8e8e8';
+    const tick = lbl.querySelector('span');
+    if (ok && !tick) { const s = document.createElement('span'); s.style.cssText='color:#7c3aed;font-size:13px;font-weight:700'; s.textContent='✓'; lbl.appendChild(s); }
+    else if (!ok && tick) tick.remove();
   });
+  // Update progress bar
+  const bar = document.querySelector('#activ-tab-panel > div > div');
+  if (bar) bar.style.width = Math.round(activDone.size/TOTAL_DEVOTIONAL_DAYS*100) + '%';
   renderFDevotional();
 }
 
