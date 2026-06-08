@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lifeclass-v6';
+const CACHE_NAME = 'lifeclass-v8';
 const ASSETS = [
   '/',
   '/index.html',
@@ -27,16 +27,17 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Network-first for API calls, cache-first for assets
+  // Network-first for API calls
   if (e.request.url.includes('script.google.com')) {
     e.respondWith(fetch(e.request).catch(() => new Response('{}', { headers: { 'Content-Type': 'application/json' } })));
     return;
   }
+  // Network-first for all assets: always fetch fresh, fall back to cache when offline
   e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request).then(res => {
+    fetch(e.request).then(res => {
       const clone = res.clone();
       caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
       return res;
-    })).catch(() => caches.match('/index.html'))
+    }).catch(() => caches.match(e.request).then(r => r || caches.match('/index.html')))
   );
 });
