@@ -432,7 +432,7 @@
 
   .big-buzzer-btn {
     width: 220px; height: 220px; border-radius: 50%;
-    border: 6px solid rgba(255,255,255,0.15);
+    border: 6px solid rgba(255,255,255,0.3);
     font-size: 60px;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
@@ -441,6 +441,12 @@
     transition: transform 0.1s;
     user-select: none;
     -webkit-user-select: none;
+    /* Default color — JS will override with table color on GAME_START.
+       Without this, the button is invisible on dark background on mobile
+       if the polling misses or delays the GAME_START event. */
+    background: linear-gradient(135deg, #1565c0, #0d3a7a);
+    color: #bbdefb;
+    box-shadow: 0 0 40px #1565c088;
   }
   .big-buzzer-btn:active { transform: scale(0.92); }
   .big-buzzer-btn .bbb-label {
@@ -2098,7 +2104,12 @@ function doBuzzerLogin() {
     setupBuzzerHome();
     go('s-buzzer-home');
     startPolling();       // poll GAS every second for host events
-    checkExistingGame();  // immediately catch up if game already started
+    // Catch up if game already started — retry up to 3x on weak mobile connections
+    checkExistingGame().catch(() => {
+      setTimeout(() => checkExistingGame().catch(() => {
+        setTimeout(() => checkExistingGame(), 2000);
+      }), 1500);
+    });
   }, 100);
 }
 
