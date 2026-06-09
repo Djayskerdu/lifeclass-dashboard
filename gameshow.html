@@ -280,7 +280,72 @@
   /* ─── PRESENTATION ─── */
   #s-presentation {
     background: radial-gradient(ellipse at top, #12003a 0%, #0a0a1a 60%);
+    position: relative;
+    overflow: hidden;
   }
+
+  /* Animated background canvas sits behind everything */
+  #gs-bg-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 1s;
+  }
+  #gs-bg-canvas.active { opacity: 1; }
+
+  /* Pulsing spotlight rays */
+  #gs-rays {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 1s;
+  }
+  #gs-rays.active { opacity: 1; }
+  .gs-ray {
+    position: absolute;
+    bottom: -10%;
+    width: 3px;
+    background: linear-gradient(to top, transparent, rgba(255,215,0,0.12), transparent);
+    transform-origin: bottom center;
+    animation: ray-sweep 6s ease-in-out infinite;
+    border-radius: 2px;
+  }
+  @keyframes ray-sweep {
+    0%,100% { opacity: 0.3; transform: scaleY(1) rotate(var(--ra)); }
+    50%      { opacity: 0.7; transform: scaleY(1.08) rotate(calc(var(--ra) + 2deg)); }
+  }
+
+  /* Floating sparkles */
+  #gs-sparkles {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+    transition: opacity 1s;
+  }
+  #gs-sparkles.active { opacity: 1; }
+  .gs-sparkle {
+    position: absolute;
+    border-radius: 50%;
+    animation: sparkle-float linear infinite;
+  }
+  @keyframes sparkle-float {
+    0%   { transform: translateY(0) scale(1); opacity: 0.8; }
+    50%  { opacity: 0.4; }
+    100% { transform: translateY(-100vh) scale(0.3); opacity: 0; }
+  }
+
+  /* Make pres-body and pres-header sit above the background */
+  #s-presentation .pres-header,
+  #s-presentation .pres-body { position: relative; z-index: 1; }
   .pres-header {
     padding: 14px 16px;
     display: flex; align-items: center; gap: 12px;
@@ -463,24 +528,34 @@
   }
 
   /* Choices on phone */
-  .phone-choices { flex: 1; padding: 16px; display: flex; flex-direction: column; }
+  .phone-choices { flex: 1; padding: 16px; display: flex; flex-direction: column; overflow-y: auto; }
   .phone-q-text {
     font-size: 15px; font-weight: 700; line-height: 1.5;
-    text-align: center; margin: 12px 0 20px;
+    text-align: center; margin: 12px 0 16px;
     background: rgba(255,255,255,0.04);
     border-radius: 12px; padding: 14px;
+    flex-shrink: 0;
+  }
+  #phone-choices-list {
+    display: flex; flex-direction: column; gap: 10px;
+    flex: 1;
   }
   .phone-choice-btn {
-    flex: 1; margin-bottom: 10px;
+    /* Equal fixed height — text wraps inside, buttons never stretch unevenly */
+    flex: 1;
+    min-height: 64px;
+    margin-bottom: 0;
     border: none; border-radius: 12px;
     font-size: 15px; font-weight: 700;
-    cursor: pointer; padding: 16px;
+    cursor: pointer; padding: 14px 16px;
     transition: transform 0.1s, opacity 0.2s;
     display: flex; align-items: center; gap: 10px;
+    text-align: left; word-break: break-word;
+    box-sizing: border-box; width: 100%;
   }
   .phone-choice-btn:active { transform: scale(0.97); }
   .phone-choice-btn .pc-ltr {
-    width: 30px; height: 30px; border-radius: 50%;
+    width: 32px; height: 32px; border-radius: 50%;
     background: rgba(255,255,255,0.2);
     display: flex; align-items: center; justify-content: center;
     font-size: 13px; font-weight: 800; flex-shrink: 0;
@@ -1028,12 +1103,25 @@
      SCREEN: PRESENTATION
 ════════════════════════════════════════ -->
 <div class="screen" id="s-presentation">
+  <!-- ── Animated game show background ── -->
+  <canvas id="gs-bg-canvas"></canvas>
+  <div id="gs-rays"></div>
+  <div id="gs-sparkles"></div>
   <div class="pres-header">
     <button class="back-btn" onclick="exitPresentation()">✕</button>
     <div style="flex:1">
       <div class="pres-quiz-title" id="pres-quiz-title">—</div>
       <div class="pres-quiz-sub" id="pres-quiz-sub">—</div>
     </div>
+    <button id="bgm-toggle-btn" onclick="toggleBGM()" style="
+      border:1.5px solid rgba(255,255,255,0.15);
+      background:rgba(255,255,255,0.08);
+      color:rgba(255,255,255,0.5);
+      border-radius:20px; padding:5px 12px;
+      font-size:11px; font-weight:700; cursor:pointer;
+      letter-spacing:0.5px; margin-right:8px;
+      transition:all 0.2s; white-space:nowrap;
+    ">🔇 BGM OFF</button>
     <div style="font-size:12px;font-weight:700;color:var(--text2)">
       Q <span id="pres-q-num">1</span>/<span id="pres-q-total">10</span>
     </div>
@@ -1354,27 +1442,6 @@ function getTableColor(tableNo) {
   return TABLE_COLORS[Math.max(0, idx)] || TABLE_COLORS[0];
 }
 
-// ── TABLE NAME HELPERS ──
-let _gsTableNamesCache = {};
-
-async function loadTableNames() {
-  try {
-    const r = await fetch(`${GAS_URL}?action=tableGuides`);
-    const j = await r.json();
-    (j.data || []).forEach(g => {
-      const tno = String(g['Table No']);
-      const name = String(g['Table Name'] || '').trim();
-      if (tno && name) _gsTableNamesCache[tno] = name;
-    });
-  } catch(e) { /* silent fallback */ }
-}
-
-function getTableLabel(tableNo) {
-  if (!tableNo && tableNo !== 0) return '—';
-  const name = _gsTableNamesCache[String(tableNo)];
-  return name ? `${name} | Table ${tableNo}` : `Table ${tableNo}`;
-}
-
 // ════════════════════════════════════════
 // STATE
 // ════════════════════════════════════════
@@ -1383,6 +1450,7 @@ const GS = {
   faculty: [],
   students: [],
   lessons: [],
+  tableGuides: [],   // { 'Table No', 'Table Name', 'Facilitator Name', ... }
 
   // Logged-in user
   currentHost: null,
@@ -1410,6 +1478,9 @@ const GS = {
   // Poll interval
   pollInterval: null,
   lastBroadcast: null,  // used to sync buzzer phones
+
+  // Choices screen lock — tracks which table is currently on the choices screen
+  _showingChoicesForTable: null,
 
   // Channel — we use localStorage as a simple in-page broadcast
 };
@@ -1463,16 +1534,25 @@ async function apiPost(payload) {
 // ════════════════════════════════════════
 async function loadBaseData() {
   try {
-    const [fac, les] = await Promise.all([
+    const [fac, les, tg] = await Promise.all([
       apiGet('faculty'),
-      apiGet('lessonWeeks')
+      apiGet('lessonWeeks'),
+      apiGet('tableGuides')
     ]);
     GS.faculty = fac.data || [];
     GS.lessons = les.data || [];
+    GS.tableGuides = tg.data || [];
     populateWeekSelects();
   } catch (e) {
     console.warn('Data load error:', e);
   }
+}
+
+// ── Get a table's display name (falls back to "Table N" if no name set) ──
+function getTableName(tableNo) {
+  const guide = GS.tableGuides.find(g => String(g['Table No']) === String(tableNo));
+  const name = guide?.['Table Name'];
+  return (name && String(name).trim()) ? String(name).trim() : `Table ${tableNo}`;
 }
 
 function populateWeekSelects() {
@@ -1924,6 +2004,8 @@ async function startPresentation(idx) {
   await broadcast('GAME_START', { quizTitle: quiz.title, quizWeek: quiz.week, totalQs: quiz.questions.length });
 
   go('s-presentation');
+  startGameShowBg();
+  startBGM();
   playIntro(() => { renderPresentationQuestion(); });
 }
 
@@ -1984,8 +2066,10 @@ function renderTablesStrip() {
   const tables = Object.keys(GS.tableScores).sort((a,b) => parseInt(a)-parseInt(b));
   document.getElementById('tables-strip').innerHTML = tables.map(t => {
     const color = getTableColor(t);
+    const name = getTableName(t);
+    const shortName = name.length > 14 ? name.slice(0, 13) + '…' : name;
     return `<div class="table-chip idle" id="tchip-${t}" style="background:${color.bg}22;border-color:${color.border}44;color:${color.label}">
-      <div class="tc-num">T${t}</div>
+      <div class="tc-num" style="font-size:11px;font-weight:800;">${shortName}</div>
       <div>${GS.tableScores[t] || 0} LC</div>
     </div>`;
   }).join('');
@@ -2301,14 +2385,23 @@ function judgeAnswer(correct) {
         updateTableChip(t, 'idle');
       }
     });
-    // Reveal correct answer
+
+    // ── STEP 1: Reveal correct answer on screen so Host can voice it out ──
     document.querySelectorAll('.pres-choice').forEach((el, i) => {
-      el.className = 'pres-choice ' + (i === q.correctIdx ? 'correct' : '');
+      el.className = 'pres-choice ' + (i === q.correctIdx ? 'correct' : 'wrong');
     });
-    // Award credits in backend
-    awardTableCredits(tableNo, q.points, `Game Show — ${GS.activeQuiz.title} Q${GS.currentQIdx+1}`);
-    // Show result banner with auto-advance countdown
-    showResultBanner(true, tableNo, q.points, true);
+
+    // ── STEP 2: After 5 seconds, show the winner banner + auto-advance ──
+    setTimeout(() => {
+      // Soften wrong choices (keep correct highlighted cleanly)
+      document.querySelectorAll('.pres-choice').forEach((el, i) => {
+        el.className = 'pres-choice ' + (i === q.correctIdx ? 'correct' : '');
+      });
+      // Award credits in backend
+      awardTableCredits(tableNo, q.points, `Game Show — ${GS.activeQuiz.title} Q${GS.currentQIdx+1}`);
+      // Show result banner with auto-advance countdown
+      showResultBanner(true, tableNo, q.points, true);
+    }, 5000);
   } else {
     updateTableChip(tableNo, 'wrong');
     // Restore remaining tables
@@ -2341,7 +2434,7 @@ function showResultBanner(correct, tableNo, pts, autoNext) {
   const banner = document.getElementById('result-banner');
   banner.className = 'result-banner show ' + (correct ? 'correct-bg' : 'wrong-bg');
   document.getElementById('rb-icon').textContent = correct ? '✅' : '❌';
-  document.getElementById('rb-title').textContent = correct ? `${getTableLabel(tableNo)} — CORRECT!` : `${getTableLabel(tableNo)} — WRONG!`;
+  document.getElementById('rb-title').textContent = correct ? `${getTableName(tableNo)} — CORRECT!` : `${getTableName(tableNo)} — WRONG!`;
   document.getElementById('rb-sub').textContent = correct ? `+${pts} LC Credits awarded! 🎉` : 'Other tables can buzz in…';
   if (correct) launchFireworks();
 
@@ -2350,7 +2443,7 @@ function showResultBanner(correct, tableNo, pts, autoNext) {
     const wrap = document.getElementById('rb-countdown-wrap');
     const numEl = document.getElementById('rb-countdown-num');
     wrap.style.display = 'block';
-    let sec = 5;
+    let sec = 3;
     numEl.textContent = sec;
 
     // Animate first tick
@@ -2413,13 +2506,13 @@ function playNextQuestionCountdown(qNum, onDone) {
   overlay.style.display = 'flex';
 
   // Step 1 — "Proceeding to the Next Question…" message
-  msgEl.textContent = 'BE READY FOR THE NEXT QUESTION, MGA KA LC!';
+  msgEl.textContent = 'Proceeding to the Next Question…';
   requestAnimationFrame(() => requestAnimationFrame(() => {
     msgEl.style.opacity = '1';
     msgEl.style.transform = 'scale(1)';
   }));
 
-  // Step 2 — auto-advance countdown 5→1 inside the overlay
+  // Step 2 — auto-advance countdown 3→1 inside the overlay
   setTimeout(() => {
     const cdEl = document.getElementById('pres-intro-countdown');
     cdEl.style.display = 'block';
@@ -2462,14 +2555,14 @@ async function awardTableCredits(tableNo, pts, reason) {
     await apiPost({
       action: 'addCredit',
       studentId: `TABLE-${tableNo}`,
-      studentName: `${getTableLabel(tableNo)}`,
+      studentName: getTableName(tableNo),
       tableNo: tableNo,
       weekNo: GS.activeQuiz?.week || 1,
       reason: reason,
       creditsAdded: pts,
       addedBy: GS.currentHost?.['Full Name'] || 'Game Show'
     });
-    showToast(`✅ ${pts} LC awarded to ${getTableLabel(tableNo)}`);
+    showToast(`✅ ${pts} LC awarded to ${getTableName(tableNo)}`);
   } catch (e) {
     showToast('⚠️ Credits award failed: ' + e.message);
   }
@@ -2558,7 +2651,7 @@ function playWinnerReveal() {
     dotsEl.classList.remove('show');
     dotsEl.textContent = '';
 
-    nameEl.textContent = getTableLabel(winnerTable);
+    nameEl.textContent = getTableName(winnerTable);
     nameEl.style.color = color.label;
     nameEl.style.textShadow = `0 0 60px ${color.bg}cc`;
     ptsEl.textContent = `${winnerPts} LC Credits`;
@@ -2648,11 +2741,15 @@ function proceedToFinalScores() {
 function exitPresentation() {
   clearInterval(cdInterval);
   stopPresentation();
+  stopGameShowBg();
+  stopBGM();
   go('s-host-home');
 }
 
 function stopPresentation() {
   clearInterval(cdInterval);
+  stopGameShowBg();
+  stopBGM();
   GS.activeQuiz = null;
   GS.currentQIdx = 0;
   GS.questionOpen = false;
@@ -2703,7 +2800,7 @@ function showFinalScores() {
     col.id = `pcol-${slot}`;
     col.innerHTML = `
       <div class="podium-avatar">${getAvatar(tableNo)}</div>
-      <div class="podium-name" style="color:${color.label}">${getTableLabel(tableNo)}</div>
+      <div class="podium-name" style="color:${color.label}">${getTableName(tableNo)}</div>
       <div class="podium-pts">${pts} LC</div>
       <div class="podium-block ${cfg.block}">${cfg.rankIcon}</div>
     `;
@@ -2717,7 +2814,7 @@ function showFinalScores() {
       const color = getTableColor(t);
       return `<div class="podium-other-row">
         <div class="podium-other-rank">${rankLabels[i] || `#${i+4}`}</div>
-        <div class="podium-other-name" style="color:${color.label}">${getTableLabel(t)}</div>
+        <div class="podium-other-name" style="color:${color.label}">${getTableName(t)}</div>
         <div class="podium-other-pts">${pts} LC</div>
       </div>`;
     }).join('');
@@ -2766,7 +2863,7 @@ function showFinalScores() {
       <div class="lb-rank-badge">${badge}</div>
       <div class="lb-avatar">${avatar}</div>
       <div class="lb-info">
-        <div class="lb-table-name" style="color:${color.label}">${getTableLabel(tableNo)}</div>
+        <div class="lb-table-name" style="color:${color.label}">${getTableName(tableNo)}</div>
         <div class="lb-pts-label">LC Credits Earned</div>
       </div>
       <div class="lb-score">${pts}<span>LC</span></div>
@@ -2835,7 +2932,7 @@ function renderRandomBuzzList() {
   if (!GS.randomBuzzOrder.length) return;
   list.innerHTML = GS.randomBuzzOrder.map((b, i) => `
     <div class="tbl-row ${i===0?'tbl-first':''}">
-      <div class="tr-name">${i===0?'🏆 ':''}${getTableLabel(b.tableNo)}</div>
+      <div class="tr-name">${i===0?'🏆 ':''}${getTableName(b.tableNo)}</div>
       <div class="tr-time">${i===0?'FIRST!':''}</div>
     </div>
   `).join('');
@@ -2852,14 +2949,14 @@ async function awardTableCredits_Random() {
     await apiPost({
       action: 'addCredit',
       studentId: `TABLE-${tableNo}`,
-      studentName: `${getTableLabel(tableNo)}`,
+      studentName: getTableName(tableNo),
       tableNo: tableNo,
       weekNo: GS.activeQuiz?.week || 1,
-      reason: `Random Q (Game Show) — ${getTableLabel(tableNo)}`,
+      reason: `Random Q (Game Show) — ${getTableName(tableNo)}`,
       creditsAdded: cred,
       addedBy: GS.currentHost?.['Full Name'] || 'Game Show'
     });
-    showToast(`✅ ${cred} LC awarded to ${getTableLabel(tableNo)}!`);
+    showToast(`✅ ${cred} LC awarded to ${getTableName(tableNo)}!`);
     // Hide award button, show student picker
     document.getElementById('random-winner-actions').style.display = 'none';
     const students = await getTableStudents(tableNo);
@@ -2949,7 +3046,7 @@ function doBuzzerLogin() {
     if (!person) { err.textContent = 'Incorrect username or password.'; err.style.display='block'; document.getElementById('b-login-pass').value=''; return; }
     GS.currentBuzzerFaculty = person;
     const tableNo = person['Table Assigned'] || '—';
-    document.getElementById('buzzer-table-label').textContent = getTableLabel(tableNo);
+    document.getElementById('buzzer-table-label').textContent = getTableName(tableNo);
     document.getElementById('buzzer-faculty-label').textContent = person['Full Name'] || '';
     setupBuzzerHome();
     go('s-buzzer-home');
@@ -2976,7 +3073,7 @@ function setupBuzzerHome() {
 // ─── Buzzer receives GAME_START ───
 function activateBuzzerGame(data) {
   const tableNo = String(GS.currentBuzzerFaculty?.['Table Assigned'] || '—');
-  document.getElementById('bg-table-label').textContent = getTableLabel(tableNo);
+  document.getElementById('bg-table-label').textContent = getTableName(tableNo);
   document.getElementById('bg-q-label').textContent = `Game: ${data.quizTitle || 'Game Show'}`;
   document.getElementById('bg-score').textContent = '0';
   document.getElementById('bc-score').textContent = '0';
@@ -3008,31 +3105,31 @@ function onQuestionOpen(data) {
   const tableNo = String(GS.currentBuzzerFaculty?.['Table Assigned'] || '');
 
   if (data.resume && data.wrongTables && Array.isArray(data.wrongTables)) {
-    // Resume after a wrong answer — sync eliminated tables from host
     GS.buzzOrder = [...data.wrongTables];
   } else if (!data.resume) {
-    // Fresh question — clear all eliminations and re-enable buzzer
     GS.buzzOrder = [];
+    GS._showingChoicesForTable = null; // fresh question — clear choices lock
     const btn = document.getElementById('big-buzzer-btn');
     if (btn) { btn.disabled = false; }
   }
 
-  if (GS.buzzOrder.includes(tableNo)) return; // already answered wrong for this question
+  if (GS.buzzOrder.includes(tableNo)) return;
 
   resetBuzzState('Press to Buzz In!', `Question ${data.qIdx + 1} — be the first!`);
 
   const btn = document.getElementById('big-buzzer-btn');
-  if (btn) {
-    btn.style.opacity = '1';
-    btn.disabled = false;
-  }
+  if (btn) { btn.style.opacity = '1'; btn.disabled = false; }
 
-  if (document.getElementById('s-buzzer-choices').classList.contains('active')) {
-    go('s-buzzer-game');
-  }
+  // Only navigate away from choices if OUR table is not currently showing choices.
+  // SHOW_CHOICES arrives right after QUESTION_OPEN in polling — navigating away here
+  // would kill the choices screen before it appears.
+  const onChoices = document.getElementById('s-buzzer-choices').classList.contains('active');
+  if (onChoices && GS._showingChoicesForTable === tableNo) return; // we are answering — stay
+  if (onChoices) go('s-buzzer-game');
 }
 
 function onQuestionClosed() {
+  GS._showingChoicesForTable = null;
   // Return to buzzer screen if on choices screen
   if (document.getElementById('s-buzzer-choices').classList.contains('active')) {
     go('s-buzzer-game');
@@ -3050,7 +3147,7 @@ function onBuzzWinner(data) {
   if (data.tableNo === myTable) {
     resetBuzzState('🔔 YOU BUZZED!', 'Choose your answer on screen!');
   } else {
-    resetBuzzState(`${getTableLabel(data.tableNo)} buzzed first!`, 'Wait for their answer…');
+    resetBuzzState(`${getTableName(data.tableNo)} buzzed first!`, 'Wait for their answer…');
     const btn = document.getElementById('big-buzzer-btn');
     if (btn) btn.style.opacity = '0.3';
   }
@@ -3060,7 +3157,10 @@ function showChoicesOnPhone(data) {
   const myTable = String(GS.currentBuzzerFaculty?.['Table Assigned'] || '');
   if (data.tableNo !== myTable) return;
 
-  document.getElementById('bc-table-label').textContent = getTableLabel(myTable);
+  // Mark that our table is currently showing choices — guards onQuestionOpen from kicking us off
+  GS._showingChoicesForTable = myTable;
+
+  document.getElementById('bc-table-label').textContent = getTableName(myTable);
   document.getElementById('phone-q-text').textContent = data.qText;
 
   const choiceLetters = 'ABCDEFG';
@@ -3069,7 +3169,7 @@ function showChoicesOnPhone(data) {
     <button class="phone-choice-btn" style="background:${colors[i%colors.length]};color:#fff"
       onclick="phoneAnswerChoice(${i}, ${data.correctIdx}, ${data.points})">
       <div class="pc-ltr">${choiceLetters[i]}</div>
-      ${c}
+      <span style="flex:1">${c}</span>
     </button>
   `).join('');
 
@@ -3110,27 +3210,24 @@ function onAnswerResult(data) {
     } else {
       showToast('❌ Wrong answer! Other tables can try.');
     }
+    // Our table got the result — clear the choices lock
+    GS._showingChoicesForTable = null;
+    // Return to buzzer screen after a brief moment so user sees feedback
+    setTimeout(() => {
+      if (document.getElementById('s-buzzer-choices').classList.contains('active')) {
+        go('s-buzzer-game');
+      }
+    }, 1800);
   }
+  // For other tables' results — no screen navigation needed on our side
 
-  // Go back to buzzer screen
-  setTimeout(() => {
-    if (document.getElementById('s-buzzer-choices').classList.contains('active')) {
-      go('s-buzzer-game');
-    }
-  }, 1500);
-
-  // Re-enable buzzer only if this table is not the one that just answered wrong
-  // (myTable already declared above)
   const btn = document.getElementById('big-buzzer-btn');
   if (data.tableNo !== myTable) {
-    // Not our table — re-enable for next buzz opportunity
+    // Not our table — re-enable buzzer for next opportunity
     if (btn) btn.style.opacity = '1';
   } else if (!data.correct) {
-    // Our table answered wrong — lock buzzer and show eliminated state
-    if (btn) {
-      btn.style.opacity = '0.3';
-      btn.disabled = true;
-    }
+    // Our table answered wrong — lock buzzer
+    if (btn) { btn.style.opacity = '0.3'; btn.disabled = true; }
     resetBuzzState('❌ Eliminated', 'Your table answered wrong for this question.');
   }
 }
@@ -3164,7 +3261,7 @@ function resetBuzzState(label, sub) {
 // ─── Random round on phone ───
 function onRandomStart(data) {
   const tableNo = String(GS.currentBuzzerFaculty?.['Table Assigned'] || '');
-  document.getElementById('rb2-table-label').textContent = getTableLabel(tableNo);
+  document.getElementById('rb2-table-label').textContent = getTableName(tableNo);
 
   if (data.question) {
     document.getElementById('random-q-display').style.display = 'block';
@@ -3209,7 +3306,7 @@ function onRandomWinner(data) {
     showToast('🏆 You buzzed first! Answer out loud!');
     if (navigator.vibrate) navigator.vibrate([100,50,100,50,200]);
   } else {
-    document.getElementById('rbuzz-state-label').textContent = `${getTableLabel(data.tableNo)} was first`;
+    document.getElementById('rbuzz-state-label').textContent = `${getTableName(data.tableNo)} was first`;
     document.getElementById('rbuzz-state-sub').textContent = 'Wait for the next question…';
   }
 }
@@ -3265,12 +3362,301 @@ function launchFireworks() {
 }
 
 // ════════════════════════════════════════
-// INIT
+// GAME SHOW BACKGROUND
 // ════════════════════════════════════════
+let _gsBgAnimId = null;
+
+function startGameShowBg() {
+  const canvas   = document.getElementById('gs-bg-canvas');
+  const raysEl   = document.getElementById('gs-rays');
+  const sparksEl = document.getElementById('gs-sparkles');
+  if (!canvas) return;
+
+  // ── Canvas: slow drifting orbs / glow pulses ──
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+
+  const orbs = Array.from({ length: 12 }, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    r: 60 + Math.random() * 120,
+    vx: (Math.random() - 0.5) * 0.4,
+    vy: (Math.random() - 0.5) * 0.4,
+    hue: [260, 280, 220, 45, 320][Math.floor(Math.random() * 5)],
+    phase: Math.random() * Math.PI * 2,
+    speed: 0.008 + Math.random() * 0.012
+  }));
+
+  function drawBg(t) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    orbs.forEach(o => {
+      o.phase += o.speed;
+      o.x += o.vx; o.y += o.vy;
+      if (o.x < -o.r) o.x = canvas.width + o.r;
+      if (o.x > canvas.width + o.r) o.x = -o.r;
+      if (o.y < -o.r) o.y = canvas.height + o.r;
+      if (o.y > canvas.height + o.r) o.y = -o.r;
+      const alpha = 0.04 + 0.03 * Math.sin(o.phase);
+      const grad = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, o.r);
+      grad.addColorStop(0, `hsla(${o.hue},100%,60%,${alpha})`);
+      grad.addColorStop(1, `hsla(${o.hue},100%,40%,0)`);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    _gsBgAnimId = requestAnimationFrame(drawBg);
+  }
+  _gsBgAnimId = requestAnimationFrame(drawBg);
+  canvas.classList.add('active');
+
+  // ── Rays: spotlight beams from bottom ──
+  raysEl.innerHTML = '';
+  const rayCount = 10;
+  for (let i = 0; i < rayCount; i++) {
+    const ray = document.createElement('div');
+    ray.className = 'gs-ray';
+    const angle = -40 + (80 / (rayCount - 1)) * i;
+    const h = 40 + Math.random() * 55;
+    ray.style.cssText = `
+      left: ${10 + (80 / (rayCount - 1)) * i}%;
+      height: ${h}vh;
+      --ra: ${angle}deg;
+      transform: rotate(${angle}deg);
+      animation-delay: ${(i * 0.4).toFixed(1)}s;
+      animation-duration: ${(4 + Math.random() * 3).toFixed(1)}s;
+      opacity: 0.5;
+    `;
+    raysEl.appendChild(ray);
+  }
+  raysEl.classList.add('active');
+
+  // ── Sparkles: floating dots/stars rising up ──
+  sparksEl.innerHTML = '';
+  const sparkColors = ['#FFD700','#fff','#ce93d8','#4FC3F7','#81C784','#FFB74D','#FF6B6B'];
+  for (let i = 0; i < 28; i++) {
+    const sp = document.createElement('div');
+    sp.className = 'gs-sparkle';
+    const size = 3 + Math.random() * 5;
+    const dur  = 8 + Math.random() * 14;
+    const delay = Math.random() * 12;
+    sp.style.cssText = `
+      left: ${Math.random() * 100}%;
+      bottom: ${Math.random() * 20}%;
+      width: ${size}px; height: ${size}px;
+      background: ${sparkColors[Math.floor(Math.random() * sparkColors.length)]};
+      animation-duration: ${dur}s;
+      animation-delay: ${delay}s;
+      opacity: 0.7;
+      box-shadow: 0 0 ${size * 2}px currentColor;
+    `;
+    sparksEl.appendChild(sp);
+  }
+  sparksEl.classList.add('active');
+}
+
+function stopGameShowBg() {
+  if (_gsBgAnimId) { cancelAnimationFrame(_gsBgAnimId); _gsBgAnimId = null; }
+  const canvas   = document.getElementById('gs-bg-canvas');
+  const raysEl   = document.getElementById('gs-rays');
+  const sparksEl = document.getElementById('gs-sparkles');
+  if (canvas)   { canvas.classList.remove('active'); canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height); }
+  if (raysEl)   { raysEl.classList.remove('active'); raysEl.innerHTML = ''; }
+  if (sparksEl) { sparksEl.classList.remove('active'); sparksEl.innerHTML = ''; }
+}
+
+// ════════════════════════════════════════
+// GAME SHOW BGM  (Web Audio API — no files needed)
+// ════════════════════════════════════════
+let _bgmCtx = null;
+let _bgmGain = null;
+let _bgmPlaying = false;
+let _bgmScheduled = [];
+let _bgmNextBar = 0;
+let _bgmTimerId = null;
+const BGM_BPM = 128;
+const BGM_VOL = 0.38;
+
+function _bgmNote(freq, start, dur, type = 'square', vol = 0.18, detune = 0) {
+  if (!_bgmCtx) return;
+  const osc  = _bgmCtx.createOscillator();
+  const gain = _bgmCtx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  osc.detune.value = detune;
+  gain.gain.setValueAtTime(0, start);
+  gain.gain.linearRampToValueAtTime(vol, start + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
+  osc.connect(gain);
+  gain.connect(_bgmGain);
+  osc.start(start);
+  osc.stop(start + dur + 0.05);
+  _bgmScheduled.push(osc);
+}
+
+function _bgmKick(t) {
+  if (!_bgmCtx) return;
+  const osc  = _bgmCtx.createOscillator();
+  const gain = _bgmCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(180, t);
+  osc.frequency.exponentialRampToValueAtTime(40, t + 0.12);
+  gain.gain.setValueAtTime(0.9, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+  osc.connect(gain); gain.connect(_bgmGain);
+  osc.start(t); osc.stop(t + 0.3);
+  _bgmScheduled.push(osc);
+}
+
+function _bgmSnare(t) {
+  if (!_bgmCtx) return;
+  const buf  = _bgmCtx.createBuffer(1, _bgmCtx.sampleRate * 0.15, _bgmCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1);
+  const src  = _bgmCtx.createBufferSource();
+  const gain = _bgmCtx.createGain();
+  const filt = _bgmCtx.createBiquadFilter();
+  filt.type = 'bandpass'; filt.frequency.value = 1800; filt.Q.value = 0.8;
+  src.buffer = buf;
+  gain.gain.setValueAtTime(0.55, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+  src.connect(filt); filt.connect(gain); gain.connect(_bgmGain);
+  src.start(t); src.stop(t + 0.2);
+  _bgmScheduled.push(src);
+}
+
+function _bgmHihat(t, vol = 0.12) {
+  if (!_bgmCtx) return;
+  const buf  = _bgmCtx.createBuffer(1, _bgmCtx.sampleRate * 0.05, _bgmCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1);
+  const src  = _bgmCtx.createBufferSource();
+  const gain = _bgmCtx.createGain();
+  const filt = _bgmCtx.createBiquadFilter();
+  filt.type = 'highpass'; filt.frequency.value = 8000;
+  src.buffer = buf;
+  gain.gain.setValueAtTime(vol, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+  src.connect(filt); filt.connect(gain); gain.connect(_bgmGain);
+  src.start(t); src.stop(t + 0.08);
+  _bgmScheduled.push(src);
+}
+
+function _bgmScheduleBar(barStart) {
+  const B  = 60 / BGM_BPM;      // beat duration (seconds)
+  const S  = B / 2;              // 8th note
+  const Q  = B / 4;              // 16th note
+
+  // ── Kick pattern: 1, 2.5, 3, 4 ──
+  [0, 1.5*B, 2*B, 3*B].forEach(o => _bgmKick(barStart + o));
+
+  // ── Snare: beats 2 & 4 ──
+  [B, 3*B].forEach(o => _bgmSnare(barStart + o));
+
+  // ── Hi-hat: every 8th note ──
+  for (let i = 0; i < 8; i++) _bgmHihat(barStart + i * S, i % 2 === 0 ? 0.14 : 0.08);
+
+  // ── Bass line (sawtooth) ──
+  // Root = A2 (110 Hz) — punchy game show feel
+  const bassLine = [
+    [110, 0,      S*0.9],
+    [110, S,      Q*0.8],
+    [82,  S*2,    S*0.9],
+    [98,  S*3,    Q*0.8],
+    [110, S*4,    S*0.9],
+    [110, S*5,    Q*0.8],
+    [123, S*6,    S*0.9],
+    [110, S*7,    Q*0.8],
+  ];
+  bassLine.forEach(([f, o, d]) => _bgmNote(f, barStart + o, d, 'sawtooth', 0.22));
+
+  // ── Melody (square — upbeat game show fanfare) ──
+  // Notes cycle every 2 bars; pick pattern based on bar parity
+  const even = Math.round(barStart / (4 * B)) % 2 === 0;
+  const mel = even
+    ? [ // bar A — ascending energetic
+        [880, 0,    Q],  [1047,Q,    Q],  [1175,S,    Q],  [1319,S+Q,  Q],
+        [1175,2*S,  Q],  [1047,2*S+Q,Q],  [1319,3*S,  S],
+        [880, 4*S,  Q],  [988, 4*S+Q,Q],  [1175,5*S,  Q],  [1047,5*S+Q,Q],
+        [1319,6*S,  Q],  [1175,6*S+Q,Q],  [1047,7*S,  S],
+      ]
+    : [ // bar B — bouncy call & response
+        [1319,0,    S],  [1047,S,    Q],  [880, S+Q,  Q],  [988, 2*S,  S],
+        [1175,3*S,  Q],  [1319,3*S+Q,Q],  [1175,4*S,  S],
+        [880, 5*S,  Q],  [1047,5*S+Q,Q],  [1175,6*S,  Q],  [1319,6*S+Q,Q],
+        [1047,7*S,  S],
+      ];
+  mel.forEach(([f, o, d]) => _bgmNote(f, barStart + o, d * 0.85, 'square', 0.10, 0));
+
+  // ── Harmony pad (triangle — warm chords underneath) ──
+  const padNotes = even
+    ? [[440,0,4*B],[554,0,4*B],[659,0,4*B]]   // A major
+    : [[392,0,4*B],[494,0,4*B],[587,0,4*B]];  // G major
+  padNotes.forEach(([f, o, d]) => _bgmNote(f, barStart + o, d, 'triangle', 0.055));
+}
+
+function startBGM() {
+  if (_bgmPlaying) return;
+  try {
+    _bgmCtx  = new (window.AudioContext || window.webkitAudioContext)();
+    _bgmGain = _bgmCtx.createGain();
+    _bgmGain.gain.value = BGM_VOL;
+    _bgmGain.connect(_bgmCtx.destination);
+    _bgmPlaying  = true;
+    _bgmNextBar  = _bgmCtx.currentTime + 0.05;
+    _bgmScheduled = [];
+
+    function scheduler() {
+      const B = 60 / BGM_BPM;
+      // Schedule 2 bars ahead to keep the loop tight
+      while (_bgmNextBar < _bgmCtx.currentTime + 2.0) {
+        _bgmScheduleBar(_bgmNextBar);
+        _bgmNextBar += 4 * B; // 1 bar = 4 beats
+      }
+      _bgmTimerId = setTimeout(scheduler, 200);
+    }
+    scheduler();
+    _updateBgmBtn();
+  } catch(e) { console.warn('BGM init failed:', e); }
+}
+
+function stopBGM() {
+  if (!_bgmPlaying) return;
+  clearTimeout(_bgmTimerId);
+  _bgmTimerId = null;
+  // Fade out gracefully
+  if (_bgmGain) {
+    _bgmGain.gain.setValueAtTime(_bgmGain.gain.value, _bgmCtx.currentTime);
+    _bgmGain.gain.linearRampToValueAtTime(0, _bgmCtx.currentTime + 0.4);
+  }
+  setTimeout(() => {
+    _bgmScheduled.forEach(n => { try { n.stop(); } catch(e) {} });
+    _bgmScheduled = [];
+    if (_bgmCtx) { _bgmCtx.close(); _bgmCtx = null; }
+    _bgmGain = null;
+    _bgmPlaying = false;
+    _updateBgmBtn();
+  }, 500);
+}
+
+function toggleBGM() {
+  if (_bgmPlaying) stopBGM(); else startBGM();
+}
+
+function _updateBgmBtn() {
+  const btn = document.getElementById('bgm-toggle-btn');
+  if (!btn) return;
+  btn.textContent = _bgmPlaying ? '🔊 BGM ON' : '🔇 BGM OFF';
+  btn.style.background = _bgmPlaying
+    ? 'linear-gradient(135deg,rgba(255,215,0,0.25),rgba(255,140,0,0.2))'
+    : 'rgba(255,255,255,0.08)';
+  btn.style.borderColor = _bgmPlaying ? 'rgba(255,215,0,0.5)' : 'rgba(255,255,255,0.15)';
+  btn.style.color = _bgmPlaying ? '#FFD700' : 'rgba(255,255,255,0.5)';
+}
 document.addEventListener('DOMContentLoaded', () => {
   loadBaseData();
   loadQuizzes();
-  loadTableNames(); // load custom table names for display
 
   // Wire up create quiz button
   document.getElementById('add-q-btn') && document.getElementById('add-q-btn').addEventListener('click', addQuestion);
