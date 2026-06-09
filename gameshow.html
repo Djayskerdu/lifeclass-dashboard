@@ -333,20 +333,6 @@
     border-color: var(--gold);
   }
 
-  /* Countdown ring */
-  .countdown-wrap {
-    display: flex; justify-content: center; margin-bottom: 14px;
-  }
-  .countdown-ring {
-    position: relative; width: 72px; height: 72px;
-  }
-  .countdown-ring svg { transform: rotate(-90deg); }
-  .countdown-ring .cd-num {
-    position: absolute; inset: 0;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 26px; font-weight: 800; color: var(--gold);
-  }
-
   /* Table buzzer status strip */
   .tables-strip {
     display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
@@ -730,17 +716,7 @@
   </div>
 
   <div class="pres-body">
-    <!-- Countdown -->
-    <div class="countdown-wrap" id="countdown-wrap">
-      <div class="countdown-ring">
-        <svg width="72" height="72" viewBox="0 0 72 72">
-          <circle cx="36" cy="36" r="30" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="6"/>
-          <circle id="cd-circle" cx="36" cy="36" r="30" fill="none" stroke="#FFD700" stroke-width="6"
-            stroke-dasharray="188.5" stroke-dashoffset="0" stroke-linecap="round"/>
-        </svg>
-        <div class="cd-num" id="cd-num">5</div>
-      </div>
-    </div>
+    <!-- Countdown removed -->
 
     <!-- Tables strip -->
     <div class="tables-strip" id="tables-strip"></div>
@@ -884,6 +860,7 @@
         <div class="es-icon">⏳</div>
         <h3>No Active Game</h3>
         <p>Wait for the Director or Consultant to start a Game Show or Random Round.</p>
+        <button class="btn-primary btn-green" style="margin-top:16px;max-width:220px" onclick="checkExistingGame().catch(()=>{})">🔄 Check Again</button>
       </div>
     </div>
   </div>
@@ -935,12 +912,7 @@
     <div class="phone-q-text" id="phone-q-text">—</div>
     <div id="phone-choices-list"></div>
   </div>
-  <!-- Time's Up overlay for buzzed table's phone -->
-  <div id="bc-timeup-overlay" style="display:none;position:absolute;inset:0;background:rgba(183,28,28,0.96);z-index:50;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px">
-    <div style="font-size:64px;margin-bottom:12px">⏰</div>
-    <div style="font-size:28px;font-weight:900;color:#fff;margin-bottom:8px">Time's Up!</div>
-    <div style="font-size:15px;color:rgba(255,255,255,0.8)">You ran out of time to answer.</div>
-  </div>
+  <!-- Time's Up overlay removed (timer disabled) -->
 </div>
 
 <!-- ════════════════════════════════════════
@@ -1196,7 +1168,6 @@ function stopPolling() {
   _pollInterval = null;
 }
 
-// Called on login — immediately fetch current game state so late-joining phones catch up
 async function checkExistingGame() {
   try {
     // Use POST to bypass Google CDN caching on mobile browsers (GET responses are cached)
@@ -1207,11 +1178,25 @@ async function checkExistingGame() {
     });
     const j = await r.json();
     if (!j?.state?.events?.length) return;
+
+    // Only replay events from the most recent GAME_START onwards
+    // This prevents replaying GAME_END from a previous game
+    const events = j.state.events;
+    let startIdx = 0;
+    for (let i = events.length - 1; i >= 0; i--) {
+      if (events[i].event === 'GAME_START') { startIdx = i; break; }
+    }
+    const recentEvents = events.slice(startIdx);
+
+    // Check if the most recent game already ended — if so, nothing to show
+    const lastEvent = recentEvents[recentEvents.length - 1];
+    if (lastEvent && lastEvent.event === 'GAME_END') return;
+
     _lastSeenTs = 0;
-    for (const ev of j.state.events) {
+    const hostToPhone = ['GAME_START','QUESTION_OPEN','QUESTION_CLOSED','BUZZ_WINNER','SHOW_CHOICES','ANSWER_RESULT','GAME_END','RANDOM_START','RANDOM_WINNER'];
+    for (const ev of recentEvents) {
       if (ev.ts <= _lastSeenTs) continue;
       _lastSeenTs = ev.ts;
-      const hostToPhone = ['GAME_START','QUESTION_OPEN','QUESTION_CLOSED','BUZZ_WINNER','SHOW_CHOICES','ANSWER_RESULT','GAME_END','RANDOM_START','RANDOM_WINNER'];
       if (GS.currentBuzzerFaculty && hostToPhone.includes(ev.event)) handleBroadcast(ev);
     }
   } catch(e) { console.warn('checkExistingGame error:', e); }
@@ -1508,6 +1493,17 @@ async function startPresentation(idx) {
   // Broadcast game start — await so GAS saves BEFORE host navigates away
   // (phones poll every second; if save hasn't happened yet they miss GAME_START)
   _eventQueue = []; // fresh queue for new game
+  _lastSeenTs = 0;  // reset seen timestamp
+
+  // First clear any old game state on GAS so phones don't replay previous game events
+  try {
+    await fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'clearGameState' })
+    });
+  } catch(e) { /* non-critical — broadcast will overwrite anyway */ }
+
   await broadcast('GAME_START', { quizTitle: quiz.title, quizWeek: quiz.week, totalQs: quiz.questions.length });
 
   go('s-presentation');
@@ -1719,40 +1715,15 @@ function playChanceOverlay(onDone) {
 }
 
 // ─── COUNTDOWN ───
-let cdSeconds = 5;
 let cdInterval = null;
 
+// Timer removed — host controls game pace manually
 function startCountdown() {
-  // NOTE: GS.questionOpen is managed by the caller — don't override it here
-  cdSeconds = 5;
-  updateCountdownUI(5);
-  clearInterval(cdInterval);
-  cdInterval = setInterval(() => {
-    cdSeconds--;
-    updateCountdownUI(cdSeconds);
-    if (cdSeconds <= 0) {
-      clearInterval(cdInterval);
-      GS.questionOpen = false;
-      broadcast('QUESTION_CLOSED', {});
-      // If nobody buzzed, lock everything
-      if (!GS.currentBuzzWinner) {
-        document.getElementById('btn-correct').disabled = true;
-        document.getElementById('btn-wrong').disabled = true;
-      }
-    }
-  }, 1000);
+  // Timer disabled. The host uses the Correct/Wrong buttons to judge answers.
 }
 
 function updateCountdownUI(sec) {
-  const num = document.getElementById('cd-num');
-  const circle = document.getElementById('cd-circle');
-  if (num) num.textContent = sec;
-  if (circle) {
-    const pct = sec / 5;
-    const dash = 188.5;
-    circle.style.strokeDashoffset = dash * (1 - pct);
-    circle.style.stroke = sec <= 2 ? '#e53935' : '#FFD700';
-  }
+  // Timer UI removed — nothing to update
 }
 
 // ─── HOST receives buzz from phone ───
@@ -2193,24 +2164,16 @@ function onQuestionOpen(data) {
 }
 
 function onQuestionClosed() {
-  // If this phone is on the choices screen, it buzzed but ran out of time
+  // Return to buzzer screen if on choices screen
   if (document.getElementById('s-buzzer-choices').classList.contains('active')) {
-    phoneShowTimeUp();
+    go('s-buzzer-game');
   } else {
     resetBuzzState('Round Closed', 'Wait for the next question…');
   }
 }
 
 function phoneShowTimeUp() {
-  const overlay = document.getElementById('bc-timeup-overlay');
-  if (overlay) { overlay.style.display = 'flex'; }
-  // Disable all choice buttons
-  document.querySelectorAll('.phone-choice-btn').forEach(b => { b.disabled = true; b.style.opacity = '0.4'; });
-  // Auto-dismiss after 2.5s and return to buzzer screen
-  setTimeout(() => {
-    if (overlay) overlay.style.display = 'none';
-    if (document.getElementById('s-buzzer-choices').classList.contains('active')) go('s-buzzer-game');
-  }, 2500);
+  // Timer removed — no time's up screen
 }
 
 function onBuzzWinner(data) {
