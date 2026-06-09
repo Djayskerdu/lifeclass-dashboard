@@ -1133,18 +1133,29 @@ let _eventQueue = [];
 let _pollInterval = null;
 let _lastSeenTs = 0;
 
-function broadcast(event, data) {
+async function broadcast(event, data) {
   const msg = { event, data, ts: Date.now() };
   localStorage.setItem(LS_BROADCAST, JSON.stringify(msg));
 
   // Also push to GAS so phones on other devices receive it
   _eventQueue.push(msg);
   if (_eventQueue.length > 20) _eventQueue = _eventQueue.slice(-20);
-  fetch(GAS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ action: 'setGameState', state: { events: _eventQueue } })
-  }).catch(() => {});
+
+  // Retry up to 3x — phones poll every second, so if this save fails
+  // the event never reaches them and they stay on the waiting screen
+  const payload = JSON.stringify({ action: 'setGameState', state: { events: _eventQueue } });
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const r = await fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: payload
+      });
+      if (r.ok) break; // saved successfully
+    } catch (e) {
+      if (attempt < 2) await new Promise(res => setTimeout(res, 600));
+    }
+  }
 }
 
 window.addEventListener('storage', (e) => {
@@ -1474,7 +1485,7 @@ function getActiveTables() {
   return ['1','2','3','4','5'];
 }
 
-function startPresentation(idx) {
+async function startPresentation(idx) {
   const quiz = GS.quizzes[idx];
   if (!quiz || !quiz.questions?.length) { showToast('No questions in quiz'); return; }
 
@@ -1494,9 +1505,10 @@ function startPresentation(idx) {
   document.getElementById('pres-quiz-sub').textContent = `Week ${quiz.week || '—'}`;
   document.getElementById('pres-q-total').textContent = quiz.questions.length;
 
-  // Broadcast game start
+  // Broadcast game start — await so GAS saves BEFORE host navigates away
+  // (phones poll every second; if save hasn't happened yet they miss GAME_START)
   _eventQueue = []; // fresh queue for new game
-  broadcast('GAME_START', { quizTitle: quiz.title, quizWeek: quiz.week, totalQs: quiz.questions.length });
+  await broadcast('GAME_START', { quizTitle: quiz.title, quizWeek: quiz.week, totalQs: quiz.questions.length });
 
   go('s-presentation');
   playIntro(() => { renderPresentationQuestion(); });
