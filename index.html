@@ -1722,7 +1722,7 @@ function gsPlayBell() {
 function gsAmenAlert(tableNo) {
   const overlay = document.getElementById('amen-alert-overlay');
   const subEl = document.getElementById('amen-alert-sub');
-  subEl.textContent = `Table ${tableNo} buzzed in!`;
+  subEl.textContent = `${gsGetTableLabel(tableNo)} buzzed in!`;
   overlay.style.display = 'flex';
   gsPlayBell();
   setTimeout(() => { overlay.style.display = 'none'; }, 3000);
@@ -2013,6 +2013,29 @@ function gsSaveQuiz() {
 }
 
 // ── PRESENTATION ENGINE ──
+// Cache for table names loaded from TABLE_GUIDES
+let gsTableNamesCache = {}; // tableNo -> name string
+
+async function gsLoadTableNames() {
+  try {
+    const r = await fetch(`${GAS_URL}?action=tableGuides`);
+    const j = await r.json();
+    (j.data || []).forEach(g => {
+      const tno = String(g['Table No']);
+      const name = String(g['Table Name'] || '').trim();
+      if (tno && name) gsTableNamesCache[tno] = name;
+    });
+  } catch(e) { /* silent — fallback to "Table X" */ }
+}
+
+function gsGetTableLabel(tableNo) {
+  if (!tableNo && tableNo !== 0) return '—';
+  // Use script1.js helper if available (same page), else use local cache
+  if (typeof getTableLabel === 'function') return getTableLabel(tableNo);
+  const name = gsTableNamesCache[String(tableNo)];
+  return name ? `${name} | Table ${tableNo}` : `Table ${tableNo}`;
+}
+
 async function gsGetTables() {
   try {
     const stored=localStorage.getItem('gs_tables_v2');
@@ -2293,7 +2316,7 @@ function gsShowResult(correct,t,pts) {
   const b=document.getElementById('gp-result');
   b.className='gp-result-banner show '+(correct?'correct-bg':'wrong-bg');
   document.getElementById('gp-rb-icon').textContent=correct?'✅':'❌';
-  document.getElementById('gp-rb-title').textContent=correct?`Table ${t} — CORRECT!`:`Table ${t} — WRONG!`;
+  document.getElementById('gp-rb-title').textContent=correct?`${gsGetTableLabel(t)} — CORRECT!`:`${gsGetTableLabel(t)} — WRONG!`;
   document.getElementById('gp-rb-sub').textContent=correct?`+${pts} LC Credits awarded! 🎉`:'Other tables can buzz in…';
   if(correct) gsFireworks();
 }
@@ -2325,7 +2348,7 @@ function gsEndGame() {
     const c=gsTableColor(t);
     return `<div class="gs-score-row" style="border-color:${i===0?'#FFD700':'rgba(255,255,255,0.07)'}">
       <div class="gs-rank">${medals[i]||'#'+(i+1)}</div>
-      <div class="gs-score-info"><div class="gs-si-name" style="color:${c.label}">Table ${t}</div><div class="gs-si-pts">${pts} LC Credits earned</div></div>
+      <div class="gs-score-info"><div class="gs-si-name" style="color:${c.label}">${gsGetTableLabel(t)}</div><div class="gs-si-pts">${pts} LC Credits earned</div></div>
       <div class="gs-score-pts">${pts}</div>
     </div>`;
   }).join('');
@@ -2337,9 +2360,9 @@ async function gsAwardTableCredits(tableNo,pts,reason) {
   try {
     // ONE record per table — not per individual student
     await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
-      body:JSON.stringify({action:'addCredit',studentId:`TABLE-${tableNo}`,studentName:`Table ${tableNo}`,
+      body:JSON.stringify({action:'addCredit',studentId:`TABLE-${tableNo}`,studentName:`${gsGetTableLabel(tableNo)}`,
         tableNo,weekNo:GS.activeQuiz?.week||1,reason,creditsAdded:pts,addedBy:GS.currentHost?.['Full Name']||'Game Show'})});
-    gsToast(`✅ ${pts} LC awarded to Table ${tableNo}`);
+    gsToast(`✅ ${pts} LC awarded to ${gsGetTableLabel(tableNo)}`);
   } catch(e) { gsToast('⚠️ Credits failed: '+e.message); }
 }
 
@@ -2364,7 +2387,7 @@ function gsOnRandomBuzz(data) {
   const list=document.getElementById('gs-random-buzz-list');
   list.innerHTML=GS.randomBuzzOrder.map((b,i)=>`
     <div class="gs-tbl-row ${i===0?'tbl-first':''}">
-      <div class="gtr-name">${i===0?'🏆 ':''}Table ${b.tableNo}</div>
+      <div class="gtr-name">${i===0?'🏆 ':''}${gsGetTableLabel(b.tableNo)}</div>
       <div class="gtr-time">${i===0?'FIRST!':''}</div>
     </div>`).join('');
   document.getElementById('gs-random-winner-actions').style.display='block';
@@ -2374,10 +2397,10 @@ async function gsAwardRandomTable() {
   const tableNo = GS.randomWinner;
   const pts = GS.randomCredits;
   // Step 1: Award table as ONE record
-  await gsAwardTableCredits(tableNo, pts, `Random Q (Game Show) — Table ${tableNo}`);
+  await gsAwardTableCredits(tableNo, pts, `Random Q (Game Show) — ${gsGetTableLabel(tableNo)}`);
   // Step 2: Show student picker so director can also credit the individual who answered
   const students = await gsGetTableStudents(tableNo);
-  document.getElementById('gs-award-table-label').textContent = `Table ${tableNo} — who answered?`;
+  document.getElementById('gs-award-table-label').textContent = `${gsGetTableLabel(tableNo)} — who answered?`;
   const listEl = document.getElementById('gs-student-list');
   if (!students.length) {
     listEl.innerHTML = '<p style="color:rgba(255,255,255,0.5);text-align:center;padding:20px">No students found for this table.</p>';
@@ -2438,7 +2461,7 @@ function gsBuzzerLogin() {
     if(!p){err.textContent='Incorrect username or password.';err.style.display='block';document.getElementById('gsb-pass').value='';return;}
     GS.currentBuzzer=p;
     const t=p['Table Assigned']||'—';
-    document.getElementById('gs-buz-table').textContent=`Table ${t}`;
+    document.getElementById('gs-buz-table').textContent=gsGetTableLabel(t);
     document.getElementById('gs-buz-name').textContent=p['Full Name']||'';
     gsGo('s-gs-buzzer-home');
     gsStartPolling(); // start cross-device sync
@@ -2470,7 +2493,7 @@ async function gsCheckExistingGame() {
 function gsActivateGame(data) {
   const t=GS.currentBuzzer?.['Table Assigned']||'—';
   const c=gsTableColor(t);
-  document.getElementById('gsbg-table').textContent=`Table ${t}`;
+  document.getElementById('gsbg-table').textContent=gsGetTableLabel(t);
   document.getElementById('gsbg-q-label').textContent=`Game: ${data.quizTitle}`;
   document.getElementById('gsbg-score').textContent='0';
   document.getElementById('gsbc-score').textContent='0';
@@ -2503,12 +2526,12 @@ function gsOnQClosed(){
 function gsOnBuzzWinner(data) {
   const my=String(GS.currentBuzzer?.['Table Assigned']||'');
   if(data.tableNo===my){gsSetBuzzState('🔔 YOU BUZZED!','Choose your answer!');}
-  else{gsSetBuzzState(`Table ${data.tableNo} buzzed first!`,'Wait…');const btn=document.getElementById('gs-big-buzzer');if(btn)btn.style.opacity='0.3';}
+  else{gsSetBuzzState(`${gsGetTableLabel(data.tableNo)} buzzed first!`,'Wait…');const btn=document.getElementById('gs-big-buzzer');if(btn)btn.style.opacity='0.3';}
 }
 function gsShowChoices(data) {
   const my=String(GS.currentBuzzer?.['Table Assigned']||'');
   if(data.tableNo!==my) return;
-  document.getElementById('gsbc-table').textContent=`Table ${my}`;
+  document.getElementById('gsbc-table').textContent=gsGetTableLabel(my);
   document.getElementById('gs-phone-q').textContent=data.qText;
   const colors=['#c62828','#1565c0','#2e7d32','#f57f17','#6a1b9a','#00695c'];
   document.getElementById('gs-phone-choices-list').innerHTML=data.choices.map((c,i)=>`
@@ -2604,7 +2627,7 @@ function gsSetBuzzState(label,sub) {
 function gsOnRandomStart(data) {
   const t=String(GS.currentBuzzer?.['Table Assigned']||'');
   const c=gsTableColor(t);
-  document.getElementById('gsrb-table').textContent=`Table ${t}`;
+  document.getElementById('gsrb-table').textContent=gsGetTableLabel(t);
   document.getElementById('gsrb-cred').textContent=`+${data.credits} LC Credits`;
   const btn=document.getElementById('gs-random-buzzer');
   if(btn){btn.style.opacity='1';btn.style.background=`linear-gradient(135deg,${c.bg},${c.bg}cc)`;btn.style.borderColor=c.border;btn.style.boxShadow=`0 0 35px ${c.bg}88`;}
@@ -2629,7 +2652,7 @@ function gsOnRandomWinner(data) {
     gsToast('🏆 You buzzed first!');
     if(navigator.vibrate)navigator.vibrate([100,50,100,50,200]);
   } else {
-    document.getElementById('gsrb-state').textContent=`Table ${data.tableNo} was first`;
+    document.getElementById('gsrb-state').textContent=`${gsGetTableLabel(data.tableNo)} was first`;
     document.getElementById('gsrb-sub').textContent='Wait for the next round…';
   }
 }
@@ -2649,6 +2672,7 @@ function gsFireworks() {
 // ── INIT ──
 document.addEventListener('DOMContentLoaded',()=>{
   gsLoadFaculty(); gsLoadLessons(); gsLoadQuizzes();
+  gsLoadTableNames(); // load custom table names
   // Prefetch tables
   if (typeof GAS_URL !== 'undefined') {
     fetch(`${GAS_URL}?action=students`).then(r=>r.json()).then(j=>{

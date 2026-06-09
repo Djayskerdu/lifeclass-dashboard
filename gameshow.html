@@ -569,6 +569,330 @@
     0%, 100% { background: rgba(46,125,50,0.3); }
     50%       { background: rgba(46,125,50,0.7); }
   }
+
+  /* ─── WINNER REVEAL OVERLAY ─── */
+  #winner-reveal-overlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 500;
+    background: #000;
+    flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 32px; overflow: hidden;
+  }
+  #winner-reveal-overlay.show { display: flex; }
+
+  #wro-bg {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, #1a0040 0%, #000 70%);
+    opacity: 0; transition: opacity 0.8s;
+  }
+  #wro-bg.show { opacity: 1; }
+
+  #wro-line1 {
+    position: relative; z-index: 2;
+    font-size: clamp(16px, 3.5vw, 24px); font-weight: 700;
+    color: rgba(255,255,255,0.5); letter-spacing: 3px;
+    text-transform: uppercase;
+    opacity: 0; transform: translateY(20px);
+    transition: opacity 0.5s, transform 0.5s;
+    margin-bottom: 16px;
+  }
+  #wro-line1.show { opacity: 1; transform: translateY(0); }
+
+  #wro-suspense {
+    position: relative; z-index: 2;
+    font-size: clamp(28px, 7vw, 56px); font-weight: 900;
+    color: #fff; line-height: 1.2;
+    opacity: 0; transform: scale(0.7);
+    transition: opacity 0.4s, transform 0.4s;
+    margin-bottom: 8px;
+  }
+  #wro-suspense.show { opacity: 1; transform: scale(1); }
+
+  #wro-dots {
+    position: relative; z-index: 2;
+    font-size: clamp(32px, 8vw, 64px); font-weight: 900;
+    color: #FFD700; letter-spacing: 12px;
+    opacity: 0; transition: opacity 0.3s;
+    margin-bottom: 24px; min-height: 80px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #wro-dots.show { opacity: 1; }
+
+  #wro-winner-wrap {
+    position: relative; z-index: 2;
+    display: flex; flex-direction: column; align-items: center;
+    opacity: 0; transform: translateY(40px) scale(0.8);
+    transition: opacity 0.6s, transform 0.6s;
+  }
+  #wro-winner-wrap.show { opacity: 1; transform: translateY(0) scale(1); }
+
+  #wro-trophy { font-size: clamp(60px, 14vw, 100px); margin-bottom: 12px;
+    animation: none; }
+  #wro-trophy.spin {
+    animation: trophy-bounce 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  }
+  @keyframes trophy-bounce {
+    0%   { transform: scale(0.3) rotate(-15deg); opacity: 0; }
+    60%  { transform: scale(1.2) rotate(5deg);  opacity: 1; }
+    100% { transform: scale(1)   rotate(0deg);  opacity: 1; }
+  }
+
+  #wro-winner-name {
+    font-size: clamp(36px, 9vw, 72px); font-weight: 900;
+    color: #FFD700; text-shadow: 0 0 60px #FFD700bb;
+    line-height: 1; margin-bottom: 8px;
+    animation: none;
+  }
+  #wro-winner-name.glow {
+    animation: name-glow 1.5s ease-in-out infinite alternate;
+  }
+  @keyframes name-glow {
+    from { text-shadow: 0 0 30px #FFD700aa; }
+    to   { text-shadow: 0 0 80px #FFD700ff, 0 0 120px #FF8C00aa; }
+  }
+
+  #wro-winner-pts {
+    font-size: clamp(16px, 3.5vw, 26px); font-weight: 700;
+    color: rgba(255,255,255,0.75); margin-bottom: 32px;
+    opacity: 0; transition: opacity 0.4s 0.3s;
+  }
+  #wro-winner-pts.show { opacity: 1; }
+
+  #wro-continue-btn {
+    position: relative; z-index: 2;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    opacity: 0; transform: translateY(20px);
+    transition: opacity 0.4s, transform 0.4s;
+  }
+  #wro-continue-btn.show { opacity: 1; transform: translateY(0); }
+
+  @keyframes star-float {
+    0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(-120px) rotate(360deg); opacity: 0; }
+  }
+  .wro-star {
+    position: absolute; z-index: 1;
+    font-size: 24px; pointer-events: none;
+    animation: star-float 2s ease-out forwards;
+  }
+  #next-q-overlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 400;
+    background: radial-gradient(ellipse at center, #0d0040 0%, #020010 100%);
+    flex-direction: column; align-items: center; justify-content: center;
+    text-align: center;
+  }
+  #next-q-overlay.show { display: flex; }
+  #nqo-label {
+    font-size: clamp(18px, 4vw, 28px); font-weight: 700;
+    color: rgba(255,255,255,0.7); letter-spacing: 2px;
+    text-transform: uppercase; margin-bottom: 12px;
+    opacity: 0; transition: opacity 0.4s;
+  }
+  #nqo-label.visible { opacity: 1; }
+  #nqo-num {
+    font-size: clamp(100px, 22vw, 180px); font-weight: 900;
+    color: #FFD700; line-height: 1;
+    text-shadow: 0 0 80px #FFD70099;
+    opacity: 0; transform: scale(0.4);
+    transition: opacity 0.25s, transform 0.25s;
+  }
+  #nqo-num.pop { opacity: 1; transform: scale(1); }
+
+  /* ─── KAHOOT-STYLE PODIUM ─── */
+  #s-final-scores {
+    background: radial-gradient(ellipse at top, #1a004a 0%, #0a0a1a 70%);
+    overflow: hidden;
+  }
+  .podium-wrap {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-end;
+    padding: 0 16px 0; position: relative;
+  }
+  .podium-title {
+    font-size: clamp(22px, 5vw, 36px); font-weight: 900;
+    color: #FFD700; text-align: center;
+    text-shadow: 0 0 40px #FFD70088;
+    margin-bottom: 8px; margin-top: 12px;
+    letter-spacing: 1px;
+  }
+  .podium-quiz-sub {
+    font-size: 13px; color: rgba(255,255,255,0.5);
+    text-align: center; margin-bottom: 24px; font-weight: 600;
+    letter-spacing: 1px; text-transform: uppercase;
+  }
+  .podium-stage {
+    display: flex; align-items: flex-end; justify-content: center;
+    gap: 10px; width: 100%; max-width: 500px;
+  }
+  .podium-col {
+    display: flex; flex-direction: column; align-items: center;
+    opacity: 0; transform: translateY(60px);
+    transition: opacity 0.5s, transform 0.5s;
+  }
+  .podium-col.risen { opacity: 1; transform: translateY(0); }
+
+  .podium-avatar {
+    font-size: 44px; margin-bottom: 6px;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.6));
+  }
+  .podium-name {
+    font-size: 13px; font-weight: 800; color: #fff;
+    margin-bottom: 4px; text-align: center;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+  }
+  .podium-pts {
+    font-size: 12px; font-weight: 700;
+    color: rgba(255,255,255,0.75); margin-bottom: 8px;
+    text-align: center;
+  }
+  .podium-block {
+    width: 90px; border-radius: 10px 10px 0 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; font-weight: 900;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
+  }
+  .podium-block.p1 { height: 120px; background: linear-gradient(180deg,#FFD700,#FF8C00); color: #000; }
+  .podium-block.p2 { height: 90px;  background: linear-gradient(180deg,#b0b8d0,#607080); color: #fff; }
+  .podium-block.p3 { height: 65px;  background: linear-gradient(180deg,#cd7f32,#8b4513); color: #fff; }
+  .podium-block.p4plus { height: 50px; background: linear-gradient(180deg,#444,#222); color: #fff; font-size: 18px; }
+
+  .podium-others {
+    width: 100%; max-width: 500px;
+    display: flex; flex-direction: column; gap: 8px;
+    margin-top: 16px; padding-bottom: 24px;
+    opacity: 0; transition: opacity 0.5s 1.2s;
+  }
+  .podium-others.show { opacity: 1; }
+  .podium-other-row {
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(255,255,255,0.06);
+    border: 1.5px solid rgba(255,255,255,0.1);
+    border-radius: 10px; padding: 10px 14px;
+  }
+  .podium-other-rank { font-size: 16px; font-weight: 800; width: 28px; text-align: center; }
+  .podium-other-name { flex: 1; font-size: 13px; font-weight: 700; }
+  .podium-other-pts  { font-size: 13px; font-weight: 800; color: var(--gold); }
+
+  @keyframes podium-shine {
+    0%   { box-shadow: 0 -4px 20px rgba(255,215,0,0.2); }
+    50%  { box-shadow: 0 -4px 40px rgba(255,215,0,0.7); }
+    100% { box-shadow: 0 -4px 20px rgba(255,215,0,0.2); }
+  }
+  .podium-block.p1 { animation: podium-shine 2s ease-in-out infinite 1.5s; }
+
+  /* ─── SIDE-BY-SIDE FINAL LAYOUT ─── */
+  #s-final-scores { overflow: hidden auto; }
+
+  #final-layout {
+    display: flex;
+    flex: 1;
+    gap: 0;
+    min-height: 0;
+    align-items: stretch;
+  }
+
+  /* Podium takes left half */
+  #final-layout .podium-wrap {
+    flex: 1;
+    border-right: 1px solid rgba(255,255,255,0.07);
+    justify-content: center;
+    padding-bottom: 24px;
+  }
+
+  /* Leaderboard panel — right half */
+  #leaderboard-panel {
+    width: 340px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 16px 24px;
+    overflow-y: auto;
+    opacity: 0;
+    transform: translateX(30px);
+    transition: opacity 0.6s, transform 0.6s;
+  }
+  #leaderboard-panel.visible {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  #lb-header {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 16px;
+  }
+  #lb-icon { font-size: 28px; }
+  #lb-title {
+    font-size: 18px; font-weight: 900;
+    color: var(--gold);
+    letter-spacing: 0.5px;
+  }
+  #lb-sub {
+    font-size: 11px; color: rgba(255,255,255,0.4);
+    font-weight: 600; letter-spacing: 1px;
+    text-transform: uppercase; margin-top: 2px;
+  }
+
+  #lb-rows { display: flex; flex-direction: column; gap: 8px; }
+
+  .lb-row {
+    display: flex; align-items: center; gap: 10px;
+    border-radius: 12px; padding: 11px 14px;
+    border: 1.5px solid transparent;
+    opacity: 0; transform: translateX(24px);
+    transition: opacity 0.4s, transform 0.4s;
+    position: relative; overflow: hidden;
+  }
+  .lb-row.appear { opacity: 1; transform: translateX(0); }
+
+  /* rank-coloured left accent bar */
+  .lb-row::before {
+    content: '';
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: 4px; border-radius: 12px 0 0 12px;
+  }
+
+  .lb-row.rank-1 { background: rgba(255,215,0,0.12); border-color: rgba(255,215,0,0.35); }
+  .lb-row.rank-1::before { background: #FFD700; }
+  .lb-row.rank-2 { background: rgba(176,184,208,0.1); border-color: rgba(176,184,208,0.25); }
+  .lb-row.rank-2::before { background: #b0b8d0; }
+  .lb-row.rank-3 { background: rgba(205,127,50,0.1); border-color: rgba(205,127,50,0.25); }
+  .lb-row.rank-3::before { background: #cd7f32; }
+  .lb-row.rank-other { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); }
+  .lb-row.rank-other::before { background: rgba(255,255,255,0.15); }
+
+  .lb-rank-badge {
+    font-size: 18px; font-weight: 900;
+    width: 28px; text-align: center; flex-shrink: 0;
+  }
+  .lb-avatar { font-size: 26px; flex-shrink: 0; }
+  .lb-info { flex: 1; min-width: 0; }
+  .lb-table-name { font-size: 14px; font-weight: 800; }
+  .lb-pts-label { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 1px; font-weight: 600; }
+  .lb-score {
+    font-size: 17px; font-weight: 900;
+    color: var(--gold); flex-shrink: 0;
+    text-align: right;
+  }
+  .lb-score span { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.4); display: block; }
+
+  /* score fill bar */
+  .lb-bar-wrap {
+    position: absolute; bottom: 0; left: 4px; right: 0; height: 3px;
+    background: rgba(255,255,255,0.05); border-radius: 0 0 12px 0;
+    overflow: hidden;
+  }
+  .lb-bar-fill {
+    height: 100%; border-radius: 0 0 12px 0;
+    width: 0; transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  /* Responsive — stack on very small screens */
+  @media (max-width: 600px) {
+    #final-layout { flex-direction: column; }
+    #leaderboard-panel { width: 100%; border-top: 1px solid rgba(255,255,255,0.07); transform: translateY(20px); }
+    #leaderboard-panel.visible { transform: translateY(0); }
+  }
 </style>
 </head>
 <body>
@@ -726,12 +1050,16 @@
     <div class="pres-q-text" id="pres-q-text">—</div>
     <div class="pres-choices" id="pres-choices"></div>
 
-    <!-- Host actions -->
-    <div class="host-actions" id="host-actions">
+    <!-- Host actions — manual judge buttons (hidden, kept for fallback logic) -->
+    <div class="host-actions" id="host-actions" style="display:none">
       <button class="host-btn hb-correct" id="btn-correct" onclick="judgeAnswer(true)"  disabled>✓ Correct</button>
       <button class="host-btn hb-wrong"   id="btn-wrong"   onclick="judgeAnswer(false)" disabled>✗ Wrong</button>
       <button class="host-btn hb-reveal"  id="btn-reveal"  onclick="revealAnswer()">👁 Reveal</button>
       <button class="host-btn hb-next"    id="btn-next"    onclick="nextQuestion()">Next ▶</button>
+    </div>
+    <!-- Auto-advance status -->
+    <div id="auto-advance-bar" style="display:none;text-align:center;padding:10px 0 4px;">
+      <div id="auto-advance-msg" style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.6);letter-spacing:1px;"></div>
     </div>
   </div>
 
@@ -740,14 +1068,27 @@
     <div class="rb-icon" id="rb-icon">✅</div>
     <div class="rb-title" id="rb-title">Correct!</div>
     <div class="rb-sub" id="rb-sub">+100 LC Credits</div>
-    <button class="btn-primary btn-gold rb-close" style="width:180px" onclick="dismissResult()">Continue</button>
+    <div id="rb-countdown-wrap" style="display:none;margin-top:20px;text-align:center;">
+      <div id="rb-countdown-msg" style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.6);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Next question incoming…</div>
+      <div id="rb-countdown-num" style="font-size:60px;font-weight:900;color:#FFD700;line-height:1;text-shadow:0 0 40px #FFD70099;transition:transform 0.2s,opacity 0.2s;"></div>
+    </div>
   </div>
 
   <canvas class="firework" id="firework-canvas"></canvas>
 
   <!-- ── GAME INTRO OVERLAY ── -->
-  <div id="pres-intro-overlay" style="display:none;position:fixed;inset:0;background:radial-gradient(ellipse at center,#1a0050 0%,#050010 100%);z-index:300;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px">
+  <div id="pres-intro-overlay" style="display:none;position:fixed;inset:0;background:radial-gradient(ellipse at center,#1a0050 0%,#050010 100%);z-index:300;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px 24px">
+    <!-- hype/proceeding label (e.g. "Let's Get Started!" or "Proceeding to the Next Question…") -->
+    <div id="pres-intro-label" style="font-size:clamp(11px,2.2vw,15px);font-weight:800;color:var(--gold);letter-spacing:3px;text-transform:uppercase;margin-bottom:18px;opacity:0;transition:opacity 0.5s;"></div>
+    <!-- main message text -->
     <div id="pres-intro-msg" style="font-size:clamp(22px,5vw,42px);font-weight:900;color:#fff;line-height:1.3;max-width:700px;transition:opacity 0.4s,transform 0.4s;opacity:0;transform:scale(0.85)"></div>
+    <!-- question preview box (shown during 5-sec read window) -->
+    <div id="pres-intro-qbox" style="display:none;margin-top:20px;background:rgba(255,255,255,0.07);border:2px solid rgba(255,215,0,0.35);border-radius:18px;padding:24px 28px;max-width:720px;width:100%;opacity:0;transform:translateY(20px);transition:opacity 0.5s,transform 0.5s;">
+      <div id="pres-intro-qlabel" style="font-size:clamp(10px,1.8vw,13px);font-weight:800;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;"></div>
+      <div id="pres-intro-qtext" style="font-size:clamp(18px,3.5vw,30px);font-weight:800;color:#fff;line-height:1.4;"></div>
+      <div id="pres-intro-qtimer" style="margin-top:14px;font-size:clamp(11px,2vw,14px);color:rgba(255,255,255,0.5);font-weight:600;letter-spacing:1px;"></div>
+    </div>
+    <!-- big countdown number -->
     <div id="pres-intro-countdown" style="font-size:clamp(80px,20vw,160px);font-weight:900;color:#FFD700;line-height:1;margin-top:16px;display:none;text-shadow:0 0 60px #FFD70088;transition:opacity 0.3s,transform 0.3s;opacity:0;transform:scale(0.5)"></div>
   </div>
 
@@ -760,14 +1101,60 @@
 </div>
 
 <!-- ════════════════════════════════════════
-     SCREEN: FINAL SCORES
+     SCREEN: FINAL SCORES (Kahoot-style podium)
 ════════════════════════════════════════ -->
 <div class="screen" id="s-final-scores">
   <div class="section-header">
     <button class="back-btn" onclick="go('s-host-home')">←</button>
     <div><h2>🏆 Final Scores</h2><div class="sub" id="final-quiz-label">—</div></div>
   </div>
-  <div class="final-scoreboard" id="final-scoreboard"></div>
+  <div id="final-layout">
+
+    <!-- LEFT: Podium -->
+    <div class="podium-wrap" id="podium-wrap">
+      <div class="podium-title">🏆 Final Scores!</div>
+      <div class="podium-quiz-sub" id="podium-quiz-sub">—</div>
+      <div class="podium-stage" id="podium-stage"></div>
+      <div class="podium-others" id="podium-others"></div>
+    </div>
+
+    <!-- RIGHT: Leaderboard -->
+    <div id="leaderboard-panel">
+      <div id="lb-header">
+        <span id="lb-icon">🏅</span>
+        <div>
+          <div id="lb-title">Leaderboard</div>
+          <div id="lb-sub">All Tables — Final Standings</div>
+        </div>
+      </div>
+      <div id="lb-rows"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── NEXT-QUESTION COUNTDOWN OVERLAY ── -->
+<div id="next-q-overlay">
+  <div id="nqo-label">Get Ready for</div>
+  <div id="nqo-num"></div>
+</div>
+
+<!-- ── WINNER REVEAL OVERLAY ── -->
+<div id="winner-reveal-overlay">
+  <div id="wro-bg"></div>
+  <div id="wro-line1">🎉 Game Over — And the Champion is…</div>
+  <div id="wro-suspense">🔥 Calculating scores…</div>
+  <div id="wro-dots"></div>
+  <div id="wro-winner-wrap">
+    <div id="wro-trophy">🏆</div>
+    <div id="wro-winner-name">Table —</div>
+    <div id="wro-winner-pts">— LC Credits</div>
+  </div>
+  <div id="wro-continue-btn" style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+    <div id="wro-cd-msg" style="font-size:clamp(11px,2vw,14px);font-weight:700;color:rgba(255,255,255,0.55);letter-spacing:2px;text-transform:uppercase;opacity:0;transition:opacity 0.5s;">Showing Full Scoreboard in…</div>
+    <div id="wro-cd-num" style="font-size:clamp(52px,12vw,80px);font-weight:900;color:#FFD700;line-height:1;text-shadow:0 0 40px #FFD70099;opacity:0;transform:scale(0.5);transition:opacity 0.25s,transform 0.25s;"></div>
+    <button onclick="proceedToFinalScores()" style="background:rgba(255,255,255,0.12);border:1.5px solid rgba(255,255,255,0.2);border-radius:50px;color:rgba(255,255,255,0.7);font-size:13px;font-weight:700;padding:10px 24px;cursor:pointer;letter-spacing:0.5px;margin-top:4px;">🏅 Skip — Show Now</button>
+  </div>
 </div>
 
 <!-- ════════════════════════════════════════
@@ -967,6 +1354,27 @@ function getTableColor(tableNo) {
   return TABLE_COLORS[Math.max(0, idx)] || TABLE_COLORS[0];
 }
 
+// ── TABLE NAME HELPERS ──
+let _gsTableNamesCache = {};
+
+async function loadTableNames() {
+  try {
+    const r = await fetch(`${GAS_URL}?action=tableGuides`);
+    const j = await r.json();
+    (j.data || []).forEach(g => {
+      const tno = String(g['Table No']);
+      const name = String(g['Table Name'] || '').trim();
+      if (tno && name) _gsTableNamesCache[tno] = name;
+    });
+  } catch(e) { /* silent fallback */ }
+}
+
+function getTableLabel(tableNo) {
+  if (!tableNo && tableNo !== 0) return '—';
+  const name = _gsTableNamesCache[String(tableNo)];
+  return name ? `${name} | Table ${tableNo}` : `Table ${tableNo}`;
+}
+
 // ════════════════════════════════════════
 // STATE
 // ════════════════════════════════════════
@@ -1109,13 +1517,10 @@ async function broadcast(event, data) {
   const msg = { event, data, ts: Date.now() };
   localStorage.setItem(LS_BROADCAST, JSON.stringify(msg));
 
-  // Also push to GAS so phones on other devices receive it
   _eventQueue.push(msg);
   if (_eventQueue.length > 20) _eventQueue = _eventQueue.slice(-20);
 
-  // ⚠️ GAS ALWAYS returns HTTP 200 even on errors — we must check the JSON body.
-  // If setGameState is not recognized (e.g. GAS not redeployed), r.ok=true but
-  // j.success=false, and phones will never receive the event.
+  // ⚠️ GAS always returns HTTP 200 even on errors — must check JSON body
   const payload = JSON.stringify({ action: 'setGameState', state: { events: _eventQueue } });
   let saved = false;
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -1126,13 +1531,13 @@ async function broadcast(event, data) {
         body: payload
       });
       const j = await r.json();
-      if (j && j.success !== false) { saved = true; break; } // saved successfully
+      if (j && j.success !== false) { saved = true; break; }
     } catch (e) {
       if (attempt < 2) await new Promise(res => setTimeout(res, 600));
     }
   }
   if (!saved && event === 'GAME_START') {
-    showToast('⚠️ Could not reach server — phones may not receive game signal. Check your GAS deployment.');
+    showToast('⚠️ Could not reach server — phones may not receive game signal.');
   }
 }
 
@@ -1245,6 +1650,12 @@ function handleBroadcast(msg) {
   }
   if (event === 'TABLE_BUZZ') {
     if (GS.currentHost) onTableBuzzReceived(data);
+  }
+  // Auto-judge when phone submits an answer
+  if (event === 'PHONE_ANSWER') {
+    if (GS.currentHost && GS.currentBuzzWinner === String(data.tableNo)) {
+      judgeAnswer(data.correct === true);
+    }
   }
 }
 
@@ -1614,18 +2025,20 @@ function updateTableChip(tableNo, state) {
 // ── GAME INTRO OVERLAY ──
 function playIntro(onDone) {
   const overlay = document.getElementById('pres-intro-overlay');
-  const msgEl   = document.getElementById('pres-intro-msg');
-  const cdEl    = document.getElementById('pres-intro-countdown');
   if (!overlay) { onDone(); return; }
 
   const messages = [
-    "Are you ready, mga ka LC? 🎉",
+    "Are you ready, mga ka-LC? 🎉",
     "Did you review your lessons?",
     "Let's see if you truly did — it's time to answer!"
   ];
 
+  // Reset all sub-elements
+  _introReset();
   overlay.style.display = 'flex';
-  cdEl.style.display = 'none';
+
+  const msgEl   = document.getElementById('pres-intro-msg');
+  const labelEl = document.getElementById('pres-intro-label');
   let step = 0;
 
   function showMsg(text, duration, next) {
@@ -1645,38 +2058,125 @@ function playIntro(onDone) {
 
   function runMessages() {
     if (step < messages.length) {
-      showMsg(messages[step], step === messages.length - 1 ? 1800 : 1500, () => { step++; runMessages(); });
+      showMsg(messages[step], step === messages.length - 1 ? 1600 : 1400, () => { step++; runMessages(); });
     } else {
-      runCountdown();
+      // "Let's Get Started!" label + question preview
+      msgEl.style.opacity = '0';
+      msgEl.style.transform = 'scale(0.85)';
+      setTimeout(() => {
+        labelEl.style.opacity = '0';
+        labelEl.textContent = '✨ Let\'s Get Started!';
+        msgEl.textContent = '';
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          labelEl.style.opacity = '1';
+        }));
+        setTimeout(() => {
+          const q = GS.activeQuiz?.questions[0];
+          playQuestionPreviewThenCountdown(overlay, 1, q?.text || '', onDone);
+        }, 900);
+      }, 200);
     }
-  }
-
-  function runCountdown() {
-    msgEl.style.opacity = '0';
-    cdEl.style.display = 'block';
-    const nums = [3, 2, 1, '🚀 GO!'];
-    let i = 0;
-    function tick() {
-      if (i >= nums.length) {
-        cdEl.style.opacity = '0';
-        cdEl.style.transform = 'scale(0.5)';
-        setTimeout(() => { overlay.style.display = 'none'; onDone(); }, 350);
-        return;
-      }
-      cdEl.style.opacity = '0';
-      cdEl.style.transform = 'scale(0.5)';
-      cdEl.textContent = nums[i];
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        cdEl.style.opacity = '1';
-        cdEl.style.transform = 'scale(1)';
-      }));
-      i++;
-      setTimeout(tick, i <= 3 ? 900 : 700);
-    }
-    tick();
   }
 
   runMessages();
+}
+
+// ── SHARED: show question text for ~5s, then 3-2-1-GO countdown, then call onDone ──
+function playQuestionPreviewThenCountdown(overlay, qNum, qText, onDone) {
+  const labelEl   = document.getElementById('pres-intro-label');
+  const msgEl     = document.getElementById('pres-intro-msg');
+  const qboxEl    = document.getElementById('pres-intro-qbox');
+  const qlabelEl  = document.getElementById('pres-intro-qlabel');
+  const qtextEl   = document.getElementById('pres-intro-qtext');
+  const qtimerEl  = document.getElementById('pres-intro-qtimer');
+  const cdEl      = document.getElementById('pres-intro-countdown');
+
+  // Show "QUESTION N" label
+  labelEl.textContent = `Question ${qNum}`;
+  labelEl.style.opacity = '1';
+
+  // Show question box
+  msgEl.style.opacity = '0';
+  cdEl.style.display = 'none';
+  qboxEl.style.display = 'block';
+  qlabelEl.textContent = `Question ${qNum}`;
+  qtextEl.textContent = qText;
+  qtimerEl.textContent = 'Read the question carefully…';
+
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    qboxEl.style.opacity = '1';
+    qboxEl.style.transform = 'translateY(0)';
+  }));
+
+  // 5-second read timer, then fade out and launch 3-2-1
+  let readSec = 5;
+  const readIv = setInterval(() => {
+    readSec--;
+    if (readSec > 0) {
+      qtimerEl.textContent = `Get ready… ${readSec}`;
+    } else {
+      clearInterval(readIv);
+      qtimerEl.textContent = 'Here we go!';
+      // Fade out question box
+      setTimeout(() => {
+        qboxEl.style.opacity = '0';
+        qboxEl.style.transform = 'translateY(-20px)';
+        labelEl.style.opacity = '0';
+        setTimeout(() => {
+          qboxEl.style.display = 'none';
+          // Launch 3-2-1 GO countdown
+          runIntroCd(overlay, onDone);
+        }, 500);
+      }, 500);
+    }
+  }, 1000);
+}
+
+// ── Shared 3-2-1-GO countdown inside the intro overlay ──
+function runIntroCd(overlay, onDone) {
+  const cdEl = document.getElementById('pres-intro-countdown');
+  cdEl.style.display = 'block';
+  const nums = ['3', '2', '1', '🚀 GO!'];
+  let i = 0;
+  function tick() {
+    if (i >= nums.length) {
+      cdEl.style.opacity = '0';
+      cdEl.style.transform = 'scale(0.5)';
+      setTimeout(() => {
+        overlay.style.display = 'none';
+        _introReset();
+        onDone();
+      }, 350);
+      return;
+    }
+    cdEl.style.opacity = '0';
+    cdEl.style.transform = 'scale(0.5)';
+    cdEl.textContent = nums[i];
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      cdEl.style.opacity = '1';
+      cdEl.style.transform = 'scale(1)';
+    }));
+    i++;
+    setTimeout(tick, i <= 3 ? 900 : 700);
+  }
+  tick();
+}
+
+// ── Reset all intro overlay sub-elements to hidden state ──
+function _introReset() {
+  const ids = ['pres-intro-label','pres-intro-msg','pres-intro-qbox','pres-intro-countdown'];
+  const el = id => document.getElementById(id);
+  el('pres-intro-label').style.opacity = '0';
+  el('pres-intro-label').textContent = '';
+  el('pres-intro-msg').style.opacity = '0';
+  el('pres-intro-msg').style.transform = 'scale(0.85)';
+  el('pres-intro-msg').textContent = '';
+  el('pres-intro-qbox').style.display = 'none';
+  el('pres-intro-qbox').style.opacity = '0';
+  el('pres-intro-qbox').style.transform = 'translateY(20px)';
+  el('pres-intro-countdown').style.display = 'none';
+  el('pres-intro-countdown').style.opacity = '0';
+  el('pres-intro-countdown').style.transform = 'scale(0.5)';
 }
 
 // ── IT'S YOUR CHANCE OVERLAY ──
@@ -1751,7 +2251,7 @@ function onTableBuzzReceived(data) {
       updateTableChip(t, t === String(tableNo) ? 'buzzed' : 'dark');
     });
 
-    // Enable judge buttons
+    // Enable judge buttons (kept hidden but functional for internal auto-judge)
     document.getElementById('btn-correct').disabled = false;
     document.getElementById('btn-wrong').disabled = false;
 
@@ -1801,14 +2301,14 @@ function judgeAnswer(correct) {
         updateTableChip(t, 'idle');
       }
     });
-    showResultBanner(true, tableNo, q.points);
-
     // Reveal correct answer
     document.querySelectorAll('.pres-choice').forEach((el, i) => {
       el.className = 'pres-choice ' + (i === q.correctIdx ? 'correct' : '');
     });
     // Award credits in backend
     awardTableCredits(tableNo, q.points, `Game Show — ${GS.activeQuiz.title} Q${GS.currentQIdx+1}`);
+    // Show result banner with auto-advance countdown
+    showResultBanner(true, tableNo, q.points, true);
   } else {
     updateTableChip(tableNo, 'wrong');
     // Restore remaining tables
@@ -1820,7 +2320,7 @@ function judgeAnswer(correct) {
       GS.currentBuzzWinner = null;
       playChanceOverlay(() => {
         GS.questionOpen = true;
-        updateCountdownUI(120); // reset ring display, but don't tick yet
+        updateCountdownUI(120);
         broadcast('QUESTION_OPEN', {
           qIdx: GS.currentQIdx,
           qText: q.text,
@@ -1833,19 +2333,56 @@ function judgeAnswer(correct) {
     } else {
       revealAnswer();
     }
-    document.getElementById('btn-correct').disabled = true;
-    document.getElementById('btn-wrong').disabled = true;
-    showResultBanner(false, tableNo, 0);
+    showResultBanner(false, tableNo, 0, false);
   }
 }
 
-function showResultBanner(correct, tableNo, pts) {
+function showResultBanner(correct, tableNo, pts, autoNext) {
   const banner = document.getElementById('result-banner');
   banner.className = 'result-banner show ' + (correct ? 'correct-bg' : 'wrong-bg');
   document.getElementById('rb-icon').textContent = correct ? '✅' : '❌';
-  document.getElementById('rb-title').textContent = correct ? `Table ${tableNo} — CORRECT!` : `Table ${tableNo} — WRONG!`;
+  document.getElementById('rb-title').textContent = correct ? `${getTableLabel(tableNo)} — CORRECT!` : `${getTableLabel(tableNo)} — WRONG!`;
   document.getElementById('rb-sub').textContent = correct ? `+${pts} LC Credits awarded! 🎉` : 'Other tables can buzz in…';
   if (correct) launchFireworks();
+
+  // Auto-advance countdown after correct answer
+  if (correct && autoNext) {
+    const wrap = document.getElementById('rb-countdown-wrap');
+    const numEl = document.getElementById('rb-countdown-num');
+    wrap.style.display = 'block';
+    let sec = 5;
+    numEl.textContent = sec;
+
+    // Animate first tick
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      numEl.style.transform = 'scale(1)';
+      numEl.style.opacity = '1';
+    }));
+
+    const iv = setInterval(() => {
+      sec--;
+      // Pop animation
+      numEl.style.transform = 'scale(0.5)';
+      numEl.style.opacity = '0';
+      setTimeout(() => {
+        numEl.textContent = sec > 0 ? sec : '🚀';
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          numEl.style.transform = 'scale(1)';
+          numEl.style.opacity = '1';
+        }));
+      }, 150);
+
+      if (sec <= 0) {
+        clearInterval(iv);
+        setTimeout(() => {
+          dismissResult();
+          nextQuestion();
+        }, 700);
+      }
+    }, 1000);
+  } else {
+    document.getElementById('rb-countdown-wrap').style.display = 'none';
+  }
 }
 
 function dismissResult() {
@@ -1861,7 +2398,62 @@ function nextQuestion() {
     endGame();
     return;
   }
-  renderPresentationQuestion();
+  // Show between-question countdown then load next question
+  playNextQuestionCountdown(GS.currentQIdx + 1, () => {
+    renderPresentationQuestion();
+  });
+}
+
+function playNextQuestionCountdown(qNum, onDone) {
+  const overlay = document.getElementById('pres-intro-overlay');
+  const labelEl = document.getElementById('pres-intro-label');
+  const msgEl   = document.getElementById('pres-intro-msg');
+
+  _introReset();
+  overlay.style.display = 'flex';
+
+  // Step 1 — "Proceeding to the Next Question…" message
+  msgEl.textContent = 'BE READY FOR THE NEXT QUESTION, MGA KA LC!';
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    msgEl.style.opacity = '1';
+    msgEl.style.transform = 'scale(1)';
+  }));
+
+  // Step 2 — auto-advance countdown 5→1 inside the overlay
+  setTimeout(() => {
+    const cdEl = document.getElementById('pres-intro-countdown');
+    cdEl.style.display = 'block';
+    const nums = ['3','2','1'];
+    let i = 0;
+
+    function tick() {
+      if (i >= nums.length) {
+        // Fade out number and "proceeding" msg, then show question preview
+        cdEl.style.opacity = '0';
+        cdEl.style.transform = 'scale(0.5)';
+        msgEl.style.opacity = '0';
+        msgEl.style.transform = 'scale(0.85)';
+        setTimeout(() => {
+          cdEl.style.display = 'none';
+          const q = GS.activeQuiz?.questions[qNum - 1];
+          playQuestionPreviewThenCountdown(overlay, qNum, q?.text || '', onDone);
+        }, 400);
+        return;
+      }
+      cdEl.style.opacity = '0';
+      cdEl.style.transform = 'scale(0.5)';
+      cdEl.textContent = nums[i];
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        cdEl.style.opacity = '1';
+        cdEl.style.transform = 'scale(1)';
+      }));
+      i++;
+      setTimeout(tick, 900);
+    }
+
+    // Small pause so "Proceeding…" text is readable first
+    setTimeout(tick, 500);
+  }, 1400);
 }
 
 async function awardTableCredits(tableNo, pts, reason) {
@@ -1870,14 +2462,14 @@ async function awardTableCredits(tableNo, pts, reason) {
     await apiPost({
       action: 'addCredit',
       studentId: `TABLE-${tableNo}`,
-      studentName: `Table ${tableNo}`,
+      studentName: `${getTableLabel(tableNo)}`,
       tableNo: tableNo,
       weekNo: GS.activeQuiz?.week || 1,
       reason: reason,
       creditsAdded: pts,
       addedBy: GS.currentHost?.['Full Name'] || 'Game Show'
     });
-    showToast(`✅ ${pts} LC awarded to Table ${tableNo}`);
+    showToast(`✅ ${pts} LC awarded to ${getTableLabel(tableNo)}`);
   } catch (e) {
     showToast('⚠️ Credits award failed: ' + e.message);
   }
@@ -1895,6 +2487,161 @@ async function getTableStudents(tableNo) {
 
 function endGame() {
   broadcast('GAME_END', { scores: GS.tableScores });
+  playWinnerReveal();
+}
+
+function playWinnerReveal() {
+  const scores = Object.entries(GS.tableScores).sort((a, b) => b[1] - a[1]);
+  const [winnerTable, winnerPts] = scores[0] || ['—', 0];
+  const color = getTableColor(winnerTable);
+
+  const overlay   = document.getElementById('winner-reveal-overlay');
+  const bg        = document.getElementById('wro-bg');
+  const line1     = document.getElementById('wro-line1');
+  const suspense  = document.getElementById('wro-suspense');
+  const dotsEl    = document.getElementById('wro-dots');
+  const winWrap   = document.getElementById('wro-winner-wrap');
+  const trophy    = document.getElementById('wro-trophy');
+  const nameEl    = document.getElementById('wro-winner-name');
+  const ptsEl     = document.getElementById('wro-winner-pts');
+  const continueBtn = document.getElementById('wro-continue-btn');
+
+  // Reset all states
+  [line1, suspense, winWrap, continueBtn].forEach(el => el.classList.remove('show'));
+  [bg].forEach(el => el.classList.remove('show'));
+  dotsEl.classList.remove('show');
+  dotsEl.textContent = '';
+  trophy.classList.remove('spin');
+  nameEl.classList.remove('glow');
+  ptsEl.classList.remove('show');
+  nameEl.style.color = '#FFD700';
+  nameEl.style.textShadow = `0 0 60px #FFD700bb`;
+
+  overlay.classList.add('show');
+
+  // Phase 1 — bg fades in
+  setTimeout(() => bg.classList.add('show'), 100);
+
+  // Phase 2 — "Game Over — the champion is…"
+  setTimeout(() => line1.classList.add('show'), 600);
+
+  // Phase 3 — suspense text
+  setTimeout(() => {
+    suspense.textContent = '🤔 Who could it be…?';
+    suspense.classList.add('show');
+  }, 1400);
+
+  // Phase 4 — animated dots (building tension)
+  setTimeout(() => {
+    dotsEl.classList.add('show');
+    const dotFrames = ['.', '..', '...', '....', '.....'];
+    let d = 0;
+    const dotTimer = setInterval(() => {
+      dotsEl.textContent = dotFrames[d % dotFrames.length];
+      d++;
+      if (d >= 12) clearInterval(dotTimer);
+    }, 300);
+  }, 2200);
+
+  // Phase 5 — swap suspense to hype
+  setTimeout(() => {
+    suspense.classList.remove('show');
+    setTimeout(() => {
+      suspense.textContent = '🥁 Drumroll please…';
+      suspense.classList.add('show');
+    }, 300);
+  }, 3800);
+
+  // Phase 6 — winner revealed!
+  setTimeout(() => {
+    suspense.classList.remove('show');
+    dotsEl.classList.remove('show');
+    dotsEl.textContent = '';
+
+    nameEl.textContent = getTableLabel(winnerTable);
+    nameEl.style.color = color.label;
+    nameEl.style.textShadow = `0 0 60px ${color.bg}cc`;
+    ptsEl.textContent = `${winnerPts} LC Credits`;
+
+    winWrap.classList.add('show');
+    ptsEl.classList.add('show');
+
+    setTimeout(() => {
+      trophy.classList.add('spin');
+      nameEl.classList.add('glow');
+      launchFireworks();
+      spawnWinnerStars(overlay);
+    }, 200);
+
+    // Show continue button after a moment
+    setTimeout(() => continueBtn.classList.add('show'), 1800);
+
+    // Auto-advance to full scoreboard after 5 seconds
+    setTimeout(() => {
+      const cdMsg = document.getElementById('wro-cd-msg');
+      const cdNum = document.getElementById('wro-cd-num');
+      if (!cdMsg || !cdNum) return;
+
+      // Fade in the "Showing Full Scoreboard in…" label
+      cdMsg.style.opacity = '1';
+
+      let sec = 5;
+      cdNum.textContent = sec;
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        cdNum.style.opacity = '1';
+        cdNum.style.transform = 'scale(1)';
+      }));
+
+      const iv = setInterval(() => {
+        sec--;
+        cdNum.style.opacity = '0';
+        cdNum.style.transform = 'scale(0.5)';
+        setTimeout(() => {
+          if (sec > 0) {
+            cdNum.textContent = sec;
+          } else {
+            cdNum.textContent = '🏆';
+          }
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            cdNum.style.opacity = '1';
+            cdNum.style.transform = 'scale(1)';
+          }));
+        }, 150);
+
+        if (sec <= 0) {
+          clearInterval(iv);
+          _wroCountdownIv = null;
+          setTimeout(() => proceedToFinalScores(), 700);
+        }
+      }, 1000);
+      _wroCountdownIv = iv;
+    }, 2800);
+
+  }, 5200);
+}
+
+function spawnWinnerStars(container) {
+  const emojis = ['⭐','🌟','✨','🎉','🎊','💫','🔥','👑'];
+  for (let i = 0; i < 14; i++) {
+    setTimeout(() => {
+      const star = document.createElement('div');
+      star.className = 'wro-star';
+      star.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+      star.style.left  = Math.random() * 90 + 5 + '%';
+      star.style.bottom = Math.random() * 30 + '%';
+      star.style.fontSize = (20 + Math.random() * 24) + 'px';
+      star.style.animationDuration = (1.5 + Math.random()) + 's';
+      container.appendChild(star);
+      setTimeout(() => star.remove(), 2500);
+    }, i * 180);
+  }
+}
+
+let _wroCountdownIv = null;
+
+function proceedToFinalScores() {
+  if (_wroCountdownIv) { clearInterval(_wroCountdownIv); _wroCountdownIv = null; }
+  document.getElementById('winner-reveal-overlay').classList.remove('show');
   showFinalScores();
 }
 
@@ -1912,26 +2659,140 @@ function stopPresentation() {
 }
 
 function showFinalScores() {
-  const scores = Object.entries(GS.tableScores)
-    .sort((a,b) => b[1]-a[1]);
+  const scores = Object.entries(GS.tableScores).sort((a, b) => b[1] - a[1]);
+  const quizTitle = GS.activeQuiz?.title || 'Game Over';
 
-  document.getElementById('final-quiz-label').textContent = GS.activeQuiz?.title || 'Game Over';
+  document.getElementById('final-quiz-label').textContent = quizTitle;
+  document.getElementById('podium-quiz-sub').textContent = quizTitle;
 
-  const medals = ['🥇','🥈','🥉'];
-  document.getElementById('final-scoreboard').innerHTML = scores.map(([t,pts], i) => {
-    const color = getTableColor(t);
-    return `<div class="score-row" style="border-color:${i===0?'var(--gold)':'rgba(255,255,255,0.08)'}">
-      <div class="score-rank">${medals[i]||`#${i+1}`}</div>
-      <div class="score-info">
-        <div class="si-name" style="color:${color.label}">Table ${t}</div>
-        <div class="si-pts">${pts} LC Credits earned</div>
-      </div>
-      <div class="score-pts">${pts}</div>
-    </div>`;
-  }).join('');
+  // Table avatars — fun emoji per table number
+  const avatars = ['🦁','🐯','🦊','🐺','🦅','🐉','🦋','🐬'];
+  function getAvatar(tableNo) {
+    return avatars[(parseInt(tableNo) - 1) % avatars.length];
+  }
+
+  // Build podium — top 3 in positions: 2nd | 1st | 3rd
+  const top3 = scores.slice(0, 3);
+  const rest  = scores.slice(3);
+
+  // Podium order: [2nd, 1st, 3rd] for visual layout
+  const podiumOrder = [top3[1], top3[0], top3[2]].filter(Boolean);
+  const podiumClasses = [
+    { block: 'p2', rankIcon: '🥈', delay: 600 },
+    { block: 'p1', rankIcon: '🥇', delay: 200 },
+    { block: 'p3', rankIcon: '🥉', delay: 900 },
+  ];
+  // Map back: center slot is always 1st place
+  const slotForEntry = podiumOrder.map((entry, slotIdx) => {
+    const rank = scores.findIndex(s => s[0] === entry[0]);
+    return { entry, rank, slot: slotIdx };
+  });
+
+  const stageEl  = document.getElementById('podium-stage');
+  const othersEl = document.getElementById('podium-others');
+  stageEl.innerHTML  = '';
+  othersEl.innerHTML = '';
+  othersEl.classList.remove('show');
+
+  slotForEntry.forEach(({ entry, rank, slot }) => {
+    const [tableNo, pts] = entry;
+    const color = getTableColor(tableNo);
+    const cfg   = podiumClasses[slot];
+    const col   = document.createElement('div');
+    col.className = 'podium-col';
+    col.id = `pcol-${slot}`;
+    col.innerHTML = `
+      <div class="podium-avatar">${getAvatar(tableNo)}</div>
+      <div class="podium-name" style="color:${color.label}">${getTableLabel(tableNo)}</div>
+      <div class="podium-pts">${pts} LC</div>
+      <div class="podium-block ${cfg.block}">${cfg.rankIcon}</div>
+    `;
+    stageEl.appendChild(col);
+  });
+
+  // 4th place and beyond
+  if (rest.length) {
+    const rankLabels = ['4th','5th','6th','7th','8th'];
+    othersEl.innerHTML = rest.map(([t, pts], i) => {
+      const color = getTableColor(t);
+      return `<div class="podium-other-row">
+        <div class="podium-other-rank">${rankLabels[i] || `#${i+4}`}</div>
+        <div class="podium-other-name" style="color:${color.label}">${getTableLabel(t)}</div>
+        <div class="podium-other-pts">${pts} LC</div>
+      </div>`;
+    }).join('');
+  }
 
   go('s-final-scores');
   launchFireworks();
+
+  // Animate columns rising one by one
+  slotForEntry.forEach(({ slot }) => {
+    const cfg = podiumClasses[slot];
+    setTimeout(() => {
+      const col = document.getElementById(`pcol-${slot}`);
+      if (col) col.classList.add('risen');
+    }, cfg.delay);
+  });
+
+  // Show rest after podium settles
+  if (rest.length) {
+    setTimeout(() => othersEl.classList.add('show'), 1400);
+  }
+
+  // ── Build leaderboard panel ──
+  const lbRows = document.getElementById('lb-rows');
+  const lbPanel = document.getElementById('leaderboard-panel');
+  lbRows.innerHTML = '';
+  lbPanel.classList.remove('visible');
+
+  const rankMedals = ['🥇','🥈','🥉'];
+  const avatars2 = ['🦁','🐯','🦊','🐺','🦅','🐉','🦋','🐬'];
+  const maxPts = scores[0]?.[1] || 1;
+
+  scores.forEach(([tableNo, pts], idx) => {
+    const rank = idx + 1;
+    const color = getTableColor(tableNo);
+    const avatar = avatars2[(parseInt(tableNo) - 1) % avatars2.length];
+    const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
+    const badge = rank <= 3 ? rankMedals[rank - 1] : `#${rank}`;
+    const barColor = rank === 1 ? '#FFD700' : rank === 2 ? '#b0b8d0' : rank === 3 ? '#cd7f32' : color.border;
+    const pct = maxPts > 0 ? Math.round((pts / maxPts) * 100) : 0;
+
+    const row = document.createElement('div');
+    row.className = `lb-row ${rankClass}`;
+    row.id = `lb-row-${idx}`;
+    row.innerHTML = `
+      <div class="lb-rank-badge">${badge}</div>
+      <div class="lb-avatar">${avatar}</div>
+      <div class="lb-info">
+        <div class="lb-table-name" style="color:${color.label}">${getTableLabel(tableNo)}</div>
+        <div class="lb-pts-label">LC Credits Earned</div>
+      </div>
+      <div class="lb-score">${pts}<span>LC</span></div>
+      <div class="lb-bar-wrap">
+        <div class="lb-bar-fill" id="lb-bar-${idx}" style="background:${barColor};"></div>
+      </div>`;
+    lbRows.appendChild(row);
+  });
+
+  // Animate leaderboard in after podium settles
+  setTimeout(() => {
+    lbPanel.classList.add('visible');
+    scores.forEach((_, idx) => {
+      setTimeout(() => {
+        const row = document.getElementById(`lb-row-${idx}`);
+        if (row) row.classList.add('appear');
+        // Animate score bar
+        setTimeout(() => {
+          const bar = document.getElementById(`lb-bar-${idx}`);
+          const maxPtsLocal = scores[0]?.[1] || 1;
+          const pct = maxPtsLocal > 0 ? Math.round((scores[idx][1] / maxPtsLocal) * 100) : 0;
+          if (bar) bar.style.width = pct + '%';
+        }, 200);
+      }, idx * 120);
+    });
+  }, 800);
 }
 
 // ════════════════════════════════════════
@@ -1974,7 +2835,7 @@ function renderRandomBuzzList() {
   if (!GS.randomBuzzOrder.length) return;
   list.innerHTML = GS.randomBuzzOrder.map((b, i) => `
     <div class="tbl-row ${i===0?'tbl-first':''}">
-      <div class="tr-name">${i===0?'🏆 ':''}Table ${b.tableNo}</div>
+      <div class="tr-name">${i===0?'🏆 ':''}${getTableLabel(b.tableNo)}</div>
       <div class="tr-time">${i===0?'FIRST!':''}</div>
     </div>
   `).join('');
@@ -1991,14 +2852,14 @@ async function awardTableCredits_Random() {
     await apiPost({
       action: 'addCredit',
       studentId: `TABLE-${tableNo}`,
-      studentName: `Table ${tableNo}`,
+      studentName: `${getTableLabel(tableNo)}`,
       tableNo: tableNo,
       weekNo: GS.activeQuiz?.week || 1,
-      reason: `Random Q (Game Show) — Table ${tableNo}`,
+      reason: `Random Q (Game Show) — ${getTableLabel(tableNo)}`,
       creditsAdded: cred,
       addedBy: GS.currentHost?.['Full Name'] || 'Game Show'
     });
-    showToast(`✅ ${cred} LC awarded to Table ${tableNo}!`);
+    showToast(`✅ ${cred} LC awarded to ${getTableLabel(tableNo)}!`);
     // Hide award button, show student picker
     document.getElementById('random-winner-actions').style.display = 'none';
     const students = await getTableStudents(tableNo);
@@ -2088,11 +2949,10 @@ function doBuzzerLogin() {
     if (!person) { err.textContent = 'Incorrect username or password.'; err.style.display='block'; document.getElementById('b-login-pass').value=''; return; }
     GS.currentBuzzerFaculty = person;
     const tableNo = person['Table Assigned'] || '—';
-    document.getElementById('buzzer-table-label').textContent = `Table ${tableNo}`;
+    document.getElementById('buzzer-table-label').textContent = getTableLabel(tableNo);
     document.getElementById('buzzer-faculty-label').textContent = person['Full Name'] || '';
     setupBuzzerHome();
     go('s-buzzer-home');
-    document.getElementById('buzzer-status-msg').textContent = '🟢 Connected — waiting for host to start…';
     startPolling();       // poll GAS every second for host events
     // Catch up if game already started — retry up to 3x on weak mobile connections
     checkExistingGame().catch(() => {
@@ -2116,7 +2976,7 @@ function setupBuzzerHome() {
 // ─── Buzzer receives GAME_START ───
 function activateBuzzerGame(data) {
   const tableNo = String(GS.currentBuzzerFaculty?.['Table Assigned'] || '—');
-  document.getElementById('bg-table-label').textContent = `Table ${tableNo}`;
+  document.getElementById('bg-table-label').textContent = getTableLabel(tableNo);
   document.getElementById('bg-q-label').textContent = `Game: ${data.quizTitle || 'Game Show'}`;
   document.getElementById('bg-score').textContent = '0';
   document.getElementById('bc-score').textContent = '0';
@@ -2190,7 +3050,7 @@ function onBuzzWinner(data) {
   if (data.tableNo === myTable) {
     resetBuzzState('🔔 YOU BUZZED!', 'Choose your answer on screen!');
   } else {
-    resetBuzzState(`Table ${data.tableNo} buzzed first!`, 'Wait for their answer…');
+    resetBuzzState(`${getTableLabel(data.tableNo)} buzzed first!`, 'Wait for their answer…');
     const btn = document.getElementById('big-buzzer-btn');
     if (btn) btn.style.opacity = '0.3';
   }
@@ -2200,7 +3060,7 @@ function showChoicesOnPhone(data) {
   const myTable = String(GS.currentBuzzerFaculty?.['Table Assigned'] || '');
   if (data.tableNo !== myTable) return;
 
-  document.getElementById('bc-table-label').textContent = `Table ${myTable}`;
+  document.getElementById('bc-table-label').textContent = getTableLabel(myTable);
   document.getElementById('phone-q-text').textContent = data.qText;
 
   const choiceLetters = 'ABCDEFG';
@@ -2304,7 +3164,7 @@ function resetBuzzState(label, sub) {
 // ─── Random round on phone ───
 function onRandomStart(data) {
   const tableNo = String(GS.currentBuzzerFaculty?.['Table Assigned'] || '');
-  document.getElementById('rb2-table-label').textContent = `Table ${tableNo}`;
+  document.getElementById('rb2-table-label').textContent = getTableLabel(tableNo);
 
   if (data.question) {
     document.getElementById('random-q-display').style.display = 'block';
@@ -2349,7 +3209,7 @@ function onRandomWinner(data) {
     showToast('🏆 You buzzed first! Answer out loud!');
     if (navigator.vibrate) navigator.vibrate([100,50,100,50,200]);
   } else {
-    document.getElementById('rbuzz-state-label').textContent = `Table ${data.tableNo} was first`;
+    document.getElementById('rbuzz-state-label').textContent = `${getTableLabel(data.tableNo)} was first`;
     document.getElementById('rbuzz-state-sub').textContent = 'Wait for the next question…';
   }
 }
@@ -2410,6 +3270,7 @@ function launchFireworks() {
 document.addEventListener('DOMContentLoaded', () => {
   loadBaseData();
   loadQuizzes();
+  loadTableNames(); // load custom table names for display
 
   // Wire up create quiz button
   document.getElementById('add-q-btn') && document.getElementById('add-q-btn').addEventListener('click', addQuestion);
