@@ -1728,10 +1728,60 @@ function gsAmenAlert(tableNo) {
   setTimeout(() => { overlay.style.display = 'none'; }, 3000);
 }
 
-// ── BROADCAST ──
+// ── BROADCAST (cross-device via GAS + localStorage fallback for same-device) ──
+
+// Event queue — keeps last 20 events so no phone misses anything
+let _gsEventQueue = [];
+
 function gsBroadcast(event, data) {
-  localStorage.setItem(GS_LS_BROADCAST, JSON.stringify({event, data, ts: Date.now()}));
+  const msg = {event, data, ts: Date.now()};
+  // 1. Same-device tabs via localStorage
+  localStorage.setItem(GS_LS_BROADCAST, JSON.stringify(msg));
+  // 2. Cross-device: push to GAS event queue
+  if (typeof GAS_URL !== 'undefined') {
+    _gsEventQueue.push(msg);
+    if (_gsEventQueue.length > 20) _gsEventQueue = _gsEventQueue.slice(-20);
+    fetch(GAS_URL, {
+      method: 'POST',
+      headers: {'Content-Type':'text/plain'},
+      body: JSON.stringify({action:'setGameState', state:{events: _gsEventQueue}})
+    }).catch(()=>{});
+  }
 }
+
+// Cross-device polling — phones poll for host events, host polls for phone events
+// Uses a queue in GAS so no events are missed
+let _gsPollInterval = null;
+let _gsLastSeenTs = 0;
+
+function gsStartPolling() {
+  if (_gsPollInterval) return;
+  if (typeof GAS_URL === 'undefined') return;
+  _gsPollInterval = setInterval(async () => {
+    if (!GS.currentBuzzer && !GS.currentHost) { gsStopPolling(); return; }
+    try {
+      const r = await fetch(`${GAS_URL}?action=gameState&_=${Date.now()}`);
+      const j = await r.json();
+      if (!j?.state?.events) return;
+      // Process any events newer than last seen
+      const events = j.state.events;
+      for (const ev of events) {
+        if (ev.ts <= _gsLastSeenTs) continue;
+        _gsLastSeenTs = ev.ts;
+        // Route: phones only handle host→phone events, host only handles phone→host events
+        const hostToPhone = ['GAME_START','QUESTION_OPEN','QUESTION_CLOSED','BUZZ_WINNER','SHOW_CHOICES','ANSWER_RESULT','GAME_END','RANDOM_START','RANDOM_WINNER'];
+        const phoneToHost = ['TABLE_BUZZ','RANDOM_BUZZ','PHONE_ANSWER'];
+        if (GS.currentBuzzer && hostToPhone.includes(ev.event)) gsHandleBroadcast(ev);
+        if (GS.currentHost  && phoneToHost.includes(ev.event))  gsHandleBroadcast(ev);
+      }
+    } catch {}
+  }, 1000);
+}
+function gsStopPolling() {
+  clearInterval(_gsPollInterval);
+  _gsPollInterval = null;
+}
+
 window.addEventListener('storage', e => {
   if (e.key !== GS_LS_BROADCAST) return;
   try { gsHandleBroadcast(JSON.parse(e.newValue)); } catch {}
@@ -1824,9 +1874,10 @@ function gsHostLogin() {
     document.getElementById('gs-host-name').textContent = p['Full Name']||'Host';
     gsLoadQuizzes(); gsRenderQuizList();
     gsGo('s-gs-host-home');
+    gsStartPolling(); // host also polls for phone buzzes
   }, 100);
 }
-function gsHostLogout() { GS.currentHost=null; gsGo('s-gs-portal'); }
+function gsHostLogout() { GS.currentHost=null; gsStopPolling(); _gsEventQueue=[]; gsGo('s-gs-portal'); }
 
 // ── QUIZ LIST ──
 function gsRenderQuizList() {
@@ -1986,6 +2037,7 @@ async function gsStartPresentation(idx) {
   if(!quiz?.questions?.length){gsToast('No questions in quiz');return;}
   GS.activeQuiz=quiz; GS.currentQIdx=0; GS.tableScores={}; GS.buzzOrder=[];
   GS.buzzWinner=null; GS.questionOpen=false; GS.answerRevealed=false;
+  _gsEventQueue=[]; // clear event queue for new game
   const tables=await gsGetTables();
   tables.forEach(t=>{GS.tableScores[String(t)]=0;});
   document.getElementById('gp-quiz-title').textContent=quiz.title;
@@ -2389,9 +2441,10 @@ function gsBuzzerLogin() {
     document.getElementById('gs-buz-table').textContent=`Table ${t}`;
     document.getElementById('gs-buz-name').textContent=p['Full Name']||'';
     gsGo('s-gs-buzzer-home');
+    gsStartPolling(); // start cross-device sync
   },100);
 }
-function gsBuzzerLogout(){GS.currentBuzzer=null;gsGo('s-gs-portal');}
+function gsBuzzerLogout(){GS.currentBuzzer=null;gsStopPolling();gsGo('s-gs-portal');}
 
 // ── BUZZER GAME EVENTS ──
 function gsActivateGame(data) {
