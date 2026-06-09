@@ -2442,9 +2442,29 @@ function gsBuzzerLogin() {
     document.getElementById('gs-buz-name').textContent=p['Full Name']||'';
     gsGo('s-gs-buzzer-home');
     gsStartPolling(); // start cross-device sync
+    gsCheckExistingGame(); // immediately check if a game is already active
   },100);
 }
 function gsBuzzerLogout(){GS.currentBuzzer=null;gsStopPolling();gsGo('s-gs-portal');}
+
+// Check if a game is already running when the phone logs in late
+async function gsCheckExistingGame() {
+  if (typeof GAS_URL === 'undefined') return;
+  try {
+    const r = await fetch(`${GAS_URL}?action=gameState&_=${Date.now()}`);
+    const j = await r.json();
+    if (!j?.state?.events?.length) return;
+    const events = j.state.events;
+    // Replay events in order so the phone catches up to the current state
+    _gsLastSeenTs = 0;
+    for (const ev of events) {
+      if (ev.ts <= _gsLastSeenTs) continue;
+      _gsLastSeenTs = ev.ts;
+      const hostToPhone = ['GAME_START','QUESTION_OPEN','QUESTION_CLOSED','BUZZ_WINNER','SHOW_CHOICES','ANSWER_RESULT','GAME_END','RANDOM_START','RANDOM_WINNER'];
+      if (hostToPhone.includes(ev.event)) gsHandleBroadcast(ev);
+    }
+  } catch(e) { console.warn('gsCheckExistingGame error:', e); }
+}
 
 // ── BUZZER GAME EVENTS ──
 function gsActivateGame(data) {
