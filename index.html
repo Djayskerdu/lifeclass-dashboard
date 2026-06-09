@@ -2064,7 +2064,7 @@ function gsRenderPresentationQ() {
   document.getElementById('gpbtn-reveal').disabled=false;
   document.getElementById('gpbtn-next').textContent=GS.currentQIdx>=GS.activeQuiz.questions.length-1?'Finish 🏁':'Next ▶';
   // Open buzzer window — countdown starts only when a table buzzes in
-  GS.questionOpen=true; GS.cdSec=60; gsUpdateCD(60);
+  GS.questionOpen=true; GS.cdSec=120; gsUpdateCD(120);
   gsBroadcast('QUESTION_OPEN',{qIdx:GS.currentQIdx,qText:q.text,choices:q.choices,pts:q.pts});
 }
 function gsRenderTables() {
@@ -2089,7 +2089,7 @@ function gsUpdateChip(t,state) {
 }
 function gsStartCountdown() {
   // NOTE: GS.questionOpen is managed by the caller — don't override it here
-  GS.cdSec=60; gsUpdateCD(60);
+  GS.cdSec=60; gsUpdateCD(120);
   clearInterval(GS.cdInterval);
   GS.cdInterval=setInterval(()=>{
     GS.cdSec--;
@@ -2517,7 +2517,7 @@ function gsShowChoices(data) {
     </button>`).join('');
   gsGo('s-gs-buzzer-choices');
   // Start local countdown on the phone
-  gsPhoneStartCD(data.secs||60);
+  gsPhoneStartCD(data.secs||120);
 }
 function gsPhoneStartCD(secs) {
   clearInterval(GS.phoneCdInterval);
