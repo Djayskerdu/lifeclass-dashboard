@@ -2008,6 +2008,7 @@ async function startPresentation(idx) {
   go('s-presentation');
   startGameShowBg();
   startBGM();
+  startPolling(); // host must poll GAS to receive TABLE_BUZZ from phones
   playIntro(() => { renderPresentationQuestion(); });
 }
 
@@ -2745,6 +2746,7 @@ function exitPresentation() {
   stopPresentation();
   stopGameShowBg();
   stopBGM();
+  stopPolling();
   go('s-host-home');
 }
 
@@ -2752,6 +2754,7 @@ function stopPresentation() {
   clearInterval(cdInterval);
   stopGameShowBg();
   stopBGM();
+  stopPolling();
   GS.activeQuiz = null;
   GS.currentQIdx = 0;
   GS.questionOpen = false;
@@ -3404,7 +3407,6 @@ function pressRandomBuzzer() {
     body: JSON.stringify({ action: 'appendGameEvent', event })
   }).catch(() => {});
 }
-
 
 function onRandomWinner(data) {
   const myTable = String(GS.currentBuzzerFaculty?.['Table Assigned'] || '');
