@@ -26,7 +26,11 @@ const SPREADSHEET_ID = "16dcuxmhkLWFYcY75Q4r9ysfGz5Oeg-R7ZMydANhxMjA"; // ← RE
  * Headers (Row 1):
  *   Activity ID | Student ID | Student Name | Table No | Day No | Completed | Date Marked | Marked By
  *
- * Sheet: MAKEUP_STATUS (tracks makeup lesson statuses)
+ * Sheet: TABLE_GUIDES
+ * Headers (Row 1):
+ *   Table No | Facilitator ID | Facilitator Name | Table Name | Total Students | Notes
+ *   ↑ Add "Table Name" column (Column D) — e.g. "Glorious Warrior"
+ *   The dashboard will display "Name | Table X" everywhere a table is shown.
  * Headers (Row 1):
  *   Makeup ID | Attendance ID | Student ID | Student Name | Week No | Table No | Status | Updated By | Updated At | Notes
  ************************************************/

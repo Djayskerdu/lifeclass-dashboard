@@ -65,6 +65,26 @@ let APP = {
 };
 
 // ═══════════════════════════════════════════
+// TABLE NAME HELPERS
+// Returns the custom Table Name for a given table number.
+// Falls back to "Table X" if no custom name is set.
+// ═══════════════════════════════════════════
+function getTableName(tableNo) {
+  if (!tableNo && tableNo !== 0) return '—';
+  const guide = APP.tableGuides.find(g => String(g['Table No']) === String(tableNo));
+  return (guide && guide['Table Name'] && String(guide['Table Name']).trim())
+    ? String(guide['Table Name']).trim()
+    : null;
+}
+
+// Returns "Name | Table X" if a custom name exists, otherwise "Table X"
+function getTableLabel(tableNo) {
+  if (!tableNo && tableNo !== 0) return '—';
+  const name = getTableName(tableNo);
+  return name ? `${name} | Table ${tableNo}` : `Table ${tableNo}`;
+}
+
+// ═══════════════════════════════════════════
 // ATTENDANCE TIME RULES
 // 1:00 PM - 1:44 PM = Present
 // 1:45 PM - 2:29 PM = Late
@@ -496,7 +516,7 @@ function renderFStudents() {
       <div class="row" style="align-items:center">
         <div>
           <strong>${s["Full Name"]}</strong><br>
-          <small>Table ${s["Table No"]} · Week ${week}</small>
+          <small>${getTableLabel(s["Table No"])} · Week ${week}</small>
           ${warningHtml}
         </div>
         <div style="background:${bg};color:${color};font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap">${label}</div>
@@ -736,7 +756,7 @@ function renderADevotionalTables() {
       <button class="menu-item" onclick="openADevotTable('${tno}')" style="margin-bottom:8px">
         <div class="mi-icon" style="background:#e8f5ee"><svg viewBox="0 0 24 24" stroke="#2d6a4f" fill="none"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg></div>
         <div class="mi-text">
-          <div class="mi-title">Table ${tno} — ${totalS} students</div>
+          <div class="mi-title">${getTableLabel(tno)} — ${totalS} students</div>
           <div class="mi-sub">📖 ${devotPct}% devotionals · ⚡ ${activPct}% activities</div>
         </div>
         <svg class="mi-arr" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
@@ -746,7 +766,7 @@ function renderADevotionalTables() {
 
 function openADevotTable(tableNo) {
   const el = document.getElementById('a-devot-table-title');
-  if (el) el.textContent = `Table ${tableNo} — Devotionals & Activities`;
+  if (el) el.textContent = `${getTableLabel(tableNo)} — Devotionals & Activities`;
   renderADevotTableStudents(tableNo);
   go('s-a-devot-table');
 }
@@ -851,7 +871,7 @@ function renderFCredits() {
   );
   el.innerHTML = sorted.map((s, i) => `
     <div class="row">
-      <div><strong>#${i + 1} ${s["Full Name"]}</strong><br><small>Table ${s["Table No"]}</small></div>
+      <div><strong>#${i + 1} ${s["Full Name"]}</strong><br><small>${getTableLabel(s["Table No"])}</small></div>
       <div>${getStudentCredits(s["Student ID"])} LC</div>
     </div>
   `).join('') || '<p style="padding:16px;color:var(--gray)">No credits yet.</p>';
@@ -918,8 +938,7 @@ function renderAStudentAtt() {
     <div class="row">
       <div>
         <strong>${a["Student Name"] || a["StudentName"] || "—"}</strong><br>
-        <small>Table ${a["Table No"] || "—"} · ${a["LG Leader"] || ""}</small>
-      </div>
+        <small>${getTableLabel(a["Table No"] || "—")} · ${a["LG Leader"] || ""}</small>      </div>
       <div>${a["Attendance Status"] || a["Status"] || "Present"}</div>
     </div>
   `).join('');
@@ -954,7 +973,7 @@ function renderATables() {
     const totalLC = getTableCredits(t);
     return `
       <div class="card" style="padding:14px;cursor:pointer" onclick="showTableDetail('${t}')">
-        <div style="font-family:var(--font-head);font-size:18px;font-weight:700">Table ${t}</div>
+        <div style="font-family:var(--font-head);font-size:18px;font-weight:700">${getTableLabel(t)}</div>
         <div style="font-size:12px;color:var(--gray);margin-top:4px">${totalLC} LC Credits</div>
       </div>
     `;
@@ -972,7 +991,7 @@ function showTableDetail(tableNo) {
   const stats       = document.getElementById('a-td-stats');
   const presentStat = document.getElementById('a-td-present-stat');
   const list        = document.getElementById('a-td-list');
-  if (title) title.textContent = `Table ${tableNo}`;
+  if (title) title.textContent = getTableLabel(tableNo);
 
   // Only active (non-dropped) students
   const students = APP.students.filter(s =>
@@ -1071,7 +1090,7 @@ function renderLeaderboard() {
   const medals = ['🥇','🥈','🥉'];
   el.innerHTML = sorted.map((s, i) => `
     <div class="row">
-      <div><strong>${medals[i] || `#${i + 1}`} ${s["Full Name"]}</strong><br><small>Table ${s["Table No"]}</small></div>
+      <div><strong>${medals[i] || `#${i + 1}`} ${s["Full Name"]}</strong><br><small>${getTableLabel(s["Table No"])}</small></div>
       <div>${getStudentCredits(s["Student ID"])} LC</div>
     </div>
   `).join('') || '<p style="padding:16px;color:var(--gray)">No students yet.</p>';
@@ -1092,7 +1111,7 @@ function renderTableLeaderboard() {
   const medals = ['🥇','🥈','🥉'];
   el.innerHTML = sorted.map((t, i) => `
     <div class="row">
-      <div><strong>${medals[i] || `#${i + 1}`} Table ${t}</strong><br><small>${tableMap[t].count} students</small></div>
+      <div><strong>${medals[i] || `#${i + 1}`} ${getTableLabel(t)}</strong><br><small>${tableMap[t].count} students</small></div>
       <div>${tableMap[t].total} LC</div>
     </div>
   `).join('') || '<p style="padding:16px;color:var(--gray)">No data yet.</p>';
@@ -1135,7 +1154,7 @@ function renderDroppedStudents() {
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
             <div>
               <div style="font-weight:700;font-size:14px;color:var(--text1)">${s["Full Name"]}</div>
-              <div style="font-size:12px;color:var(--text3)">${s["LG Leader"] || "—"} · Table ${t}</div>
+              <div style="font-size:12px;color:var(--text3)">${s["LG Leader"] || "—"} · ${getTableLabel(t)}</div>
               <div style="font-size:11px;color:#e53935;margin-top:2px;font-weight:600">🚫 DROPPED — ${absenceCount} absence${absenceCount !== 1 ? 's' : ''}</div>
             </div>
           </div>
@@ -1204,7 +1223,7 @@ function openDropStudentModal() {
   const tableGrid = document.getElementById('drop-table-grid');
   if (tableGrid) {
     tableGrid.innerHTML = tableSet.map(t => `
-      <button onclick="selectDropTable('${t}')" style="padding:14px;border-radius:10px;border:1.5px solid var(--border);background:#fff;font-size:15px;font-weight:700;cursor:pointer;color:var(--text1)">Table ${t}</button>
+      <button onclick="selectDropTable('${t}')" style="padding:14px;border-radius:10px;border:1.5px solid var(--border);background:#fff;font-size:15px;font-weight:700;cursor:pointer;color:var(--text1)">${getTableLabel(t)}</button>
     `).join('');
   }
   modal.style.display = 'flex';
@@ -1213,7 +1232,7 @@ function openDropStudentModal() {
 function selectDropTable(tableNo) {
   document.getElementById('drop-step-table').style.display = 'none';
   document.getElementById('drop-step-students').style.display = '';
-  document.getElementById('drop-step-table-label').textContent = `Table ${tableNo} — Select Student`;
+  document.getElementById('drop-step-table-label').textContent = `${getTableLabel(tableNo)} — Select Student`;
   const students = APP.students.filter(s =>
     String(s["Table No"]) === String(tableNo) &&
     (s["Status"] || "Active").toLowerCase() !== "dropped"
@@ -1483,7 +1502,7 @@ async function scanQR(id) {
           <span style="font-size:28px">❌</span>
           <div>
             <div style="font-weight:700;font-size:15px;color:#b71c1c">${student['Full Name']}</div>
-            <div style="font-size:12px;color:#e53935">Marked <strong>Absent</strong> — Week ${APP.currentWeek} · Table ${student['Table No']}</div>
+            <div style="font-size:12px;color:#e53935">Marked <strong>Absent</strong> — Week ${APP.currentWeek} · ${getTableLabel(student['Table No'])}</div>
             <div style="font-size:12px;color:#b71c1c;font-weight:700;margin-top:4px">⚠️ WARNING: 2 absences — 1 more = AUTO-DROP</div>
           </div>
         </div>`;
@@ -1506,7 +1525,7 @@ async function scanQR(id) {
       <span style="font-size:28px">${sc.icon}</span>
       <div>
         <div style="font-weight:700;font-size:15px;color:#1a3a2a">${student['Full Name']}</div>
-        <div style="font-size:12px;color:${sc.border}">Marked <strong>${status}</strong> — Week ${APP.currentWeek} · Table ${student['Table No']}</div>
+        <div style="font-size:12px;color:${sc.border}">Marked <strong>${status}</strong> — Week ${APP.currentWeek} · ${getTableLabel(student['Table No'])}</div>
         <div style="font-size:11px;color:#666;margin-top:2px">${new Date().toLocaleTimeString()}</div>
         ${status === 'Late' ? '<div style="font-size:11px;color:#c9960c;margin-top:3px">⚠️ 3 unexcused late = 1 Absent</div>' : ''}
         ${status === 'Absent' ? '<div style="font-size:11px;color:#e53935;margin-top:3px">⚠️ 3 unexcused absences = Drop</div>' : ''}
@@ -1617,7 +1636,7 @@ function renderQRGenList() {
   list.innerHTML = items.map(item => {
     const id   = type === 'student' ? item['Student ID'] : item['Faculty ID'];
     const name = item['Full Name'];
-    const sub  = type === 'student' ? `ID: ${id} · Table ${item['Table No']}` : `ID: ${id} · ${item['Role']}`;
+    const sub  = type === 'student' ? `ID: ${id} · ${getTableLabel(item['Table No'])}` : `ID: ${id} · ${item['Role']}`;
     const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     return `<div onclick="openQRModal('${String(id).replace(/'/g,"\'")}','${name.replace(/'/g,"\'")}','${sub.replace(/'/g,"\'")}',this)"
       style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:#f8f8f8;border-radius:10px;cursor:pointer;border:1.5px solid transparent;transition:border-color 0.15s"
@@ -1731,7 +1750,7 @@ function openTableAddCredit() {
   if (!modal) return;
   const tableNo    = document.getElementById('a-td-title')?.textContent?.replace('Table ','').trim();
   const modalTitle = document.getElementById('modal-table-credit-title');
-  if (modalTitle) modalTitle.textContent = `Add LC Credits — Table ${tableNo}`;
+  if (modalTitle) modalTitle.textContent = `Add LC Credits — ${getTableLabel(tableNo)}`;
   modal.style.display = 'flex';
   document.querySelectorAll('#modal-table-credit .reason-btn').forEach((b, i) => {
     b.classList.toggle('selected', i === 0);
@@ -1768,7 +1787,7 @@ async function doTableAddCredit() {
     await apiPost({
       action:      'addCredit',
       studentId:   '',
-      studentName: `Table ${tableNo} (Group)`,
+      studentName: `${getTableLabel(tableNo)} (Group)`,
       tableNo:     tableNo,
       weekNo:      APP.currentWeek,
       reason,
@@ -1778,7 +1797,7 @@ async function doTableAddCredit() {
 
     closeTableCreditModal();
     await loadAllData();
-    showToast(`✅ ${amount} LC added to Table ${tableNo}`);
+    showToast(`✅ ${amount} LC added to ${getTableLabel(tableNo)}`);
     showTableDetail(tableNo);
   } catch (err) {
     showToast('❌ ' + (err.message || 'Failed to save'));
@@ -1881,7 +1900,7 @@ function renderBalances() {
       <div class="row">
         <div>
           <strong>${s["Full Name"]}</strong><br>
-          <small>Table ${s["Table No"]} · ₱${pay.paid.toLocaleString()} paid</small>
+          <small>${getTableLabel(s["Table No"])} · ₱${pay.paid.toLocaleString()} paid</small>
         </div>
         <div style="color:${pay.balance > 0 ? 'var(--red,#e53935)' : 'var(--green)'}">
           ₱${pay.balance.toLocaleString()}
@@ -2071,7 +2090,7 @@ function updateFacultyHome() {
     const el = document.getElementById(id);
     if (el && tableNo) {
       const labels = { 'f-students-topbar': 'Attendance', 'f-payment-topbar': 'Payment', 'f-credits-topbar': 'LC Credits' };
-      el.textContent = `Table ${tableNo} — ${labels[id]}`;
+      el.textContent = `${getTableLabel(tableNo)} — ${labels[id]}`;
     }
   });
 }
@@ -2139,7 +2158,7 @@ function renderMakeup() {
       <div class="row" style="align-items:center;flex-wrap:wrap;gap:6px;padding:12px 0">
         <div style="flex:1;min-width:120px">
           <strong>${a["Student Name"] || a["StudentName"] || "—"}</strong><br>
-          <small style="color:var(--text3)">Week ${a["Week No"]} · Table ${a["Table No"] || "—"}</small>
+          <small style="color:var(--text3)">Week ${a["Week No"]} · ${getTableLabel(a["Table No"] || "—")}</small>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
           <div style="background:${bg};color:${color};font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap">${mkStatus}</div>
@@ -2189,7 +2208,7 @@ function populatePayStudentSelect() {
   const sel = document.getElementById('pay-student-sel');
   if (!sel) return;
   sel.innerHTML = APP.students.map(s =>
-    `<option value="${s["Student ID"]}">${s["Full Name"]} (Table ${s["Table No"]})</option>`
+    `<option value="${s["Student ID"]}">${s["Full Name"]} (${getTableLabel(s["Table No"])})</option>`
   ).join('');
 }
 
@@ -2201,7 +2220,7 @@ function filterPayStudents() {
     s["Full Name"].toLowerCase().includes(query) || String(s["Student ID"]).includes(query)
   );
   sel.innerHTML = filtered.map(s =>
-    `<option value="${s["Student ID"]}">${s["Full Name"]} (Table ${s["Table No"]})</option>`
+    `<option value="${s["Student ID"]}">${s["Full Name"]} (${getTableLabel(s["Table No"])})</option>`
   ).join('');
 }
 
