@@ -166,6 +166,17 @@ function doPost(e) {
         PropertiesService.getScriptProperties().setProperty("GS_GAME_STATE", JSON.stringify(data.state));
         return output({ success: true });
 
+      // appendGameEvent — used by phones to add a single event (buzz) without
+      // overwriting the host's full event queue
+      case "appendGameEvent":
+        var gsAppRaw = PropertiesService.getScriptProperties().getProperty("GS_GAME_STATE");
+        var gsAppState = gsAppRaw ? JSON.parse(gsAppRaw) : { events: [] };
+        if (!gsAppState.events) gsAppState.events = [];
+        gsAppState.events.push(data.event);
+        if (gsAppState.events.length > 40) gsAppState.events = gsAppState.events.slice(-40);
+        PropertiesService.getScriptProperties().setProperty("GS_GAME_STATE", JSON.stringify(gsAppState));
+        return output({ success: true });
+
       // getGameState via POST — avoids GAS GET CDN caching on mobile devices
       case "getGameState":
         var gsRaw2 = PropertiesService.getScriptProperties().getProperty("GS_GAME_STATE");

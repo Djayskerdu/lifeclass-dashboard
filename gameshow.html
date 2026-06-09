@@ -3404,7 +3404,7 @@ function pressRandomBuzzer() {
     body: JSON.stringify({ action: 'appendGameEvent', event })
   }).catch(() => {});
 }
-}
+
 
 function onRandomWinner(data) {
   const myTable = String(GS.currentBuzzerFaculty?.['Table Assigned'] || '');
