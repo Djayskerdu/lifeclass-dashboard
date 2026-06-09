@@ -1552,7 +1552,7 @@ function renderPresentationQuestion() {
   // Open buzzer window — countdown starts only when a table buzzes in
   GS.questionOpen = true;
   GS.currentBuzzWinner = null;
-  updateCountdownUI(60); // show full ring, but don't tick yet
+  updateCountdownUI(120); // show full ring, but don't tick yet
 
   // Broadcast question open
   broadcast('QUESTION_OPEN', {

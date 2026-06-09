@@ -2089,7 +2089,7 @@ function gsUpdateChip(t,state) {
 }
 function gsStartCountdown() {
   // NOTE: GS.questionOpen is managed by the caller — don't override it here
-  GS.cdSec=60; gsUpdateCD(120);
+  GS.cdSec=120; gsUpdateCD(120);
   clearInterval(GS.cdInterval);
   GS.cdInterval=setInterval(()=>{
     GS.cdSec--;
