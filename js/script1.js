@@ -371,9 +371,11 @@ function refreshCurrentScreen() {
 // NAVIGATION
 // ═══════════════════════════════════════════
 function go(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const main = document.getElementById('desktop-main');
+  (main ? main.querySelectorAll('.screen') : document.querySelectorAll('.screen'))
+    .forEach(s => { s.classList.remove('active'); s.classList.remove('screen-animated'); });
   const el = document.getElementById(id);
-  if (el) el.classList.add('active');
+  if (el) { el.classList.add('screen-animated'); el.classList.add('active'); }
   APP.currentScreen = id;
 
   if (id === 's-faculty-home')  updateFacultyHome();
@@ -1031,7 +1033,7 @@ async function confirmDropStudentFromTable(studentId, studentName) {
 // Get total LC credits for a whole table — table-level only (studentId is blank)
 function getTableCredits(tableNo) {
   return APP.credits
-    .filter(c => String(c["Table No"]) === String(tableNo) && !c["Student ID"])
+    .filter(c => String(c["Table No"]) === String(tableNo) && (!c["Student ID"] || String(c["Student ID"]).startsWith('TABLE-')))
     .reduce((sum, c) => sum + Number(c["Credits Added"] || 0), 0);
 }
 
