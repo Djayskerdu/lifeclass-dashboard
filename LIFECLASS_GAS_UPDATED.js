@@ -587,3 +587,122 @@ function output(data) {
     .createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
 }
+
+
+// ════════════════════════════════════════════════════════════
+//  LIFECLASS AMEN ALERT — GAS ADDITIONS
+//  Add these to your existing LIFECLASS_GAS_UPDATED.js
+//  (No new sheets needed — uses existing LC_CREDITS sheet)
+// ════════════════════════════════════════════════════════════
+
+// ─── The gameshow.html calls addCredit (already exists) ───
+// Nothing new is needed in GAS unless you want a dedicated
+// game show log. The existing addCredit action handles all
+// LC Credit awards from the game show automatically.
+
+
+// ════════════════════════════════════════════════════════════
+//  INDEX.HTML PATCH — Add the Amen Alert portal card
+//
+//  Find the portal-cards section in your index.html and add
+//  this card BEFORE the closing </div> of .portal-cards:
+// ════════════════════════════════════════════════════════════
+
+/*  ADD THIS CARD to index.html portal section:
+
+    <div class="portal-card" onclick="window.location='gameshow.html'"
+      style="background:linear-gradient(135deg,#1a0538,#3d0d72);border-color:rgba(255,215,0,0.2)">
+      <div style="font-size:32px;margin-bottom:8px">🚨</div>
+      <h3 style="font-size:16px;font-weight:700;margin-bottom:4px">Amen Alert!</h3>
+      <p style="font-size:12px;opacity:0.75">Game Show — Quizzes &amp; Buzzer rounds</p>
+      <div style="position:absolute;top:12px;right:12px;background:rgba(255,215,0,0.15);color:#FFD700;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px">GAME SHOW</div>
+    </div>
+*/
+
+
+// ════════════════════════════════════════════════════════════
+//  HOW THE GAME SHOW WORKS — SUMMARY
+// ════════════════════════════════════════════════════════════
+
+/*
+  SETUP:
+  ──────
+  1. Place gameshow.html in the same folder as your index.html
+  2. Add the portal card above to your index.html
+  3. Deploy both files to your web host (same folder)
+
+  HOW TO USE:
+  ───────────
+
+  DIRECTOR / CONSULTANT (HOST)
+  ────────────────────────────
+  1. Open gameshow.html → tap "Game Show Host"
+  2. Login with your Director/Consultant username & password
+  3. Create a quiz: tap ＋, set title, select week, add questions
+     - Up to 10 questions per quiz
+     - Up to 6 multiple choice options per question
+     - Set LC Credits per question (default 100)
+     - Mark the correct answer with the radio button
+  4. Tap ▶ Present to start the game show
+  5. During each question:
+     - A 5-second countdown starts
+     - Tables can buzz in via their faculty phones
+     - First table to buzz is highlighted (blinking)
+     - The winning table's phone shows the multiple choices
+     - Tap ✓ Correct → Awards LC Credits to that table automatically
+     - Tap ✗ Wrong → Table goes dark, other tables can buzz in
+     - Tap 👁 Reveal → Shows the correct answer
+  6. Final scores shown after last question with fireworks
+
+  FACULTY & STAFF (BUZZER PHONES)
+  ────────────────────────────────
+  1. Open gameshow.html on their phone → tap "Table Buzzer"
+  2. Login with their faculty username & password
+  3. The app detects their Table Assigned automatically
+  4. Their buzzer button matches their table color
+  5. When the host starts a question, they tap BUZZ!
+  6. If their table buzzes first:
+     - Their screen shows the multiple choice options
+     - They tap their answer
+     - Host confirms correct/wrong via host screen
+  7. Score tracks on their phone throughout the game
+
+  RANDOM QUESTION ROUND (Separate from quiz)
+  ────────────────────────────────────────────
+  Host side:
+  1. Tap "Start Random Round 🎲" on host home
+  2. Type any question and set LC Credits (100 or 200)
+  3. Tap GO — all faculty phones switch to buzzer mode
+  4. Ask the question out loud
+  5. See which table buzzed first in real time
+  6. Tap "Award Winner Credits" — automatically credited
+  7. Tap "New Question" to ask another
+
+  Faculty phone side:
+  1. Screen switches to a golden "I KNOW!" buzzer
+  2. Host's question appears on screen
+  3. First to tap wins
+  4. No wrong answer — just speed!
+
+  CROSS-DEVICE SYNC:
+  ──────────────────
+  The game show uses localStorage broadcast (same browser/device
+  or same-origin tabs). For multi-device use across phones:
+  
+  OPTION A (Simplest): All phones on the same device
+  OPTION B (Multi-device): See Firebase integration below
+  
+  For multi-device real-time sync, replace the broadcast()
+  function with Firebase Realtime Database or Pusher calls.
+  The broadcast events are:
+    GAME_START, QUESTION_OPEN, QUESTION_CLOSED,
+    BUZZ_WINNER, SHOW_CHOICES, ANSWER_RESULT, GAME_END,
+    TABLE_BUZZ, RANDOM_START, RANDOM_BUZZ, RANDOM_WINNER
+
+  TABLE COLORS (matches your existing table setup):
+  ──────────────────────────────────────────────────
+  Table 1 = Red     Table 2 = Blue    Table 3 = Green
+  Table 4 = Yellow  Table 5 = Purple  Table 6 = Teal
+  Table 7 = Pink    Table 8 = Orange
+  (Edit TABLE_COLORS array in gameshow.html to customize)
+*/
