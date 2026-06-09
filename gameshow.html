@@ -1122,10 +1122,23 @@ function saveQuizzesToStorage() {
 // ════════════════════════════════════════
 // BROADCAST (cross-tab via localStorage)
 // ════════════════════════════════════════
+// ── Cross-device event queue (written to GAS so phones can poll) ──
+let _eventQueue = [];
+let _pollInterval = null;
+let _lastSeenTs = 0;
+
 function broadcast(event, data) {
   const msg = { event, data, ts: Date.now() };
   localStorage.setItem(LS_BROADCAST, JSON.stringify(msg));
-  // Also trigger storage event for other tabs
+
+  // Also push to GAS so phones on other devices receive it
+  _eventQueue.push(msg);
+  if (_eventQueue.length > 20) _eventQueue = _eventQueue.slice(-20);
+  fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'setGameState', state: { events: _eventQueue } })
+  }).catch(() => {});
 }
 
 window.addEventListener('storage', (e) => {
@@ -1135,6 +1148,47 @@ window.addEventListener('storage', (e) => {
     handleBroadcast(msg);
   } catch {}
 });
+
+// Start polling GAS for cross-device events (used by phone buzzers)
+function startPolling() {
+  if (_pollInterval) return;
+  _pollInterval = setInterval(async () => {
+    try {
+      const r = await fetch(`${GAS_URL}?action=gameState&_=${Date.now()}`);
+      const j = await r.json();
+      if (!j?.state?.events) return;
+      for (const ev of j.state.events) {
+        if (ev.ts <= _lastSeenTs) continue;
+        _lastSeenTs = ev.ts;
+        const hostToPhone = ['GAME_START','QUESTION_OPEN','QUESTION_CLOSED','BUZZ_WINNER','SHOW_CHOICES','ANSWER_RESULT','GAME_END','RANDOM_START','RANDOM_WINNER'];
+        const phoneToHost = ['TABLE_BUZZ','RANDOM_BUZZ','PHONE_ANSWER'];
+        if (GS.currentBuzzerFaculty && hostToPhone.includes(ev.event)) handleBroadcast(ev);
+        if (GS.currentHost && phoneToHost.includes(ev.event)) handleBroadcast(ev);
+      }
+    } catch {}
+  }, 1000);
+}
+
+function stopPolling() {
+  clearInterval(_pollInterval);
+  _pollInterval = null;
+}
+
+// Called on login — immediately fetch current game state so late-joining phones catch up
+async function checkExistingGame() {
+  try {
+    const r = await fetch(`${GAS_URL}?action=gameState&_=${Date.now()}`);
+    const j = await r.json();
+    if (!j?.state?.events?.length) return;
+    _lastSeenTs = 0;
+    for (const ev of j.state.events) {
+      if (ev.ts <= _lastSeenTs) continue;
+      _lastSeenTs = ev.ts;
+      const hostToPhone = ['GAME_START','QUESTION_OPEN','QUESTION_CLOSED','BUZZ_WINNER','SHOW_CHOICES','ANSWER_RESULT','GAME_END','RANDOM_START','RANDOM_WINNER'];
+      if (GS.currentBuzzerFaculty && hostToPhone.includes(ev.event)) handleBroadcast(ev);
+    }
+  } catch(e) { console.warn('checkExistingGame error:', e); }
+}
 
 function handleBroadcast(msg) {
   if (!msg || !msg.event) return;
@@ -1425,6 +1479,7 @@ function startPresentation(idx) {
   document.getElementById('pres-q-total').textContent = quiz.questions.length;
 
   // Broadcast game start
+  _eventQueue = []; // fresh queue for new game
   broadcast('GAME_START', { quizTitle: quiz.title, quizWeek: quiz.week, totalQs: quiz.questions.length });
 
   go('s-presentation');
@@ -2032,11 +2087,14 @@ function doBuzzerLogin() {
     document.getElementById('buzzer-faculty-label').textContent = person['Full Name'] || '';
     setupBuzzerHome();
     go('s-buzzer-home');
+    startPolling();       // poll GAS every second for host events
+    checkExistingGame();  // immediately catch up if game already started
   }, 100);
 }
 
 function buzzerLogout() {
   GS.currentBuzzerFaculty = null;
+  stopPolling();
   go('s-portal');
 }
 
