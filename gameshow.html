@@ -860,7 +860,7 @@
         <div class="es-icon">⏳</div>
         <h3>No Active Game</h3>
         <p>Wait for the Director or Consultant to start a Game Show or Random Round.</p>
-        <button class="btn-primary btn-green" style="margin-top:16px;max-width:220px" onclick="(async()=>{document.getElementById('buzzer-status-msg').textContent='Checking…';await checkExistingGame().catch(()=>{});const h=document.getElementById('s-buzzer-home');if(h&&h.classList.contains('active'))document.getElementById('buzzer-status-msg').textContent='No active game found. Try again soon.';})()">🔄 Check Again</button>
+        <button class="btn-primary btn-green" style="margin-top:16px;max-width:220px" onclick="checkExistingGame().catch(()=>{})">🔄 Check Again</button>
       </div>
     </div>
   </div>
@@ -1113,9 +1113,11 @@ async function broadcast(event, data) {
   _eventQueue.push(msg);
   if (_eventQueue.length > 20) _eventQueue = _eventQueue.slice(-20);
 
-  // Retry up to 3x — phones poll every second, so if this save fails
-  // the event never reaches them and they stay on the waiting screen
+  // ⚠️ GAS ALWAYS returns HTTP 200 even on errors — we must check the JSON body.
+  // If setGameState is not recognized (e.g. GAS not redeployed), r.ok=true but
+  // j.success=false, and phones will never receive the event.
   const payload = JSON.stringify({ action: 'setGameState', state: { events: _eventQueue } });
+  let saved = false;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const r = await fetch(GAS_URL, {
@@ -1123,10 +1125,14 @@ async function broadcast(event, data) {
         headers: { 'Content-Type': 'text/plain' },
         body: payload
       });
-      if (r.ok) break; // saved successfully
+      const j = await r.json();
+      if (j && j.success !== false) { saved = true; break; } // saved successfully
     } catch (e) {
       if (attempt < 2) await new Promise(res => setTimeout(res, 600));
     }
+  }
+  if (!saved && event === 'GAME_START') {
+    showToast('⚠️ Could not reach server — phones may not receive game signal. Check your GAS deployment.');
   }
 }
 
@@ -1158,20 +1164,6 @@ function startPolling() {
         const phoneToHost = ['TABLE_BUZZ','RANDOM_BUZZ','PHONE_ANSWER'];
         if (GS.currentBuzzerFaculty && hostToPhone.includes(ev.event)) handleBroadcast(ev);
         if (GS.currentHost && phoneToHost.includes(ev.event)) handleBroadcast(ev);
-      }
-
-      // ── POLLING SAFETY NET ──
-      // If phone is on the buzzer screen but the button somehow got stuck disabled
-      // (race condition between GAME_START arrival and QUESTION_OPEN), re-enable it.
-      if (GS.currentBuzzerFaculty) {
-        const buzzerScreen = document.getElementById('s-buzzer-game');
-        if (buzzerScreen && buzzerScreen.classList.contains('active')) {
-          const btn = document.getElementById('big-buzzer-btn');
-          // Only fix if visually stuck (opacity < 1 and not intentionally disabled after a wrong answer)
-          if (btn && !btn.disabled && btn.style.opacity === '0') {
-            btn.style.opacity = '1';
-          }
-        }
       }
     } catch {}
   }, 1000);
@@ -1212,30 +1204,6 @@ async function checkExistingGame() {
       if (ev.ts <= _lastSeenTs) continue;
       _lastSeenTs = ev.ts;
       if (GS.currentBuzzerFaculty && hostToPhone.includes(ev.event)) handleBroadcast(ev);
-    }
-
-    // ── LATE-JOINER FIX ──
-    // If the game is active but this phone missed QUESTION_OPEN (e.g. joined mid-game),
-    // the buzzer screen may be showing but the button is still disabled/dimmed.
-    // Force-enable it so the user can always buzz in.
-    const gameActive = recentEvents.some(e => e.event === 'GAME_START') ||
-                       recentEvents.some(e => e.event === 'RANDOM_START');
-    if (gameActive && GS.currentBuzzerFaculty) {
-      const buzzerScreen = document.getElementById('s-buzzer-game');
-      const randomScreen = document.getElementById('s-random-buzz');
-
-      if (buzzerScreen && buzzerScreen.classList.contains('active')) {
-        const btn = document.getElementById('big-buzzer-btn');
-        if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
-        const label = document.getElementById('buzz-state-label');
-        if (label && (label.textContent === 'Press when ready' || !label.textContent.trim())) {
-          resetBuzzState('🔔 Ready!', 'Game is live — buzz in when you know!');
-        }
-      }
-      if (randomScreen && randomScreen.classList.contains('active')) {
-        const btn = document.getElementById('random-buzzer-btn');
-        if (btn) { btn.style.opacity = '1'; }
-      }
     }
   } catch(e) { console.warn('checkExistingGame error:', e); }
 }
@@ -2122,18 +2090,12 @@ function doBuzzerLogin() {
     const tableNo = person['Table Assigned'] || '—';
     document.getElementById('buzzer-table-label').textContent = `Table ${tableNo}`;
     document.getElementById('buzzer-faculty-label').textContent = person['Full Name'] || '';
-    document.getElementById('buzzer-status-msg').textContent = 'Connected! Checking for active game…';
     setupBuzzerHome();
     go('s-buzzer-home');
+    document.getElementById('buzzer-status-msg').textContent = '🟢 Connected — waiting for host to start…';
     startPolling();       // poll GAS every second for host events
     // Catch up if game already started — retry up to 3x on weak mobile connections
-    checkExistingGame().then(() => {
-      // After checking, if still on home screen, update status
-      const homeScreen = document.getElementById('s-buzzer-home');
-      if (homeScreen && homeScreen.classList.contains('active')) {
-        document.getElementById('buzzer-status-msg').textContent = 'Waiting for host to start a game…';
-      }
-    }).catch(() => {
+    checkExistingGame().catch(() => {
       setTimeout(() => checkExistingGame().catch(() => {
         setTimeout(() => checkExistingGame(), 2000);
       }), 1500);
@@ -2166,7 +2128,6 @@ function activateBuzzerGame(data) {
     btn.style.borderColor = color.border;
     btn.style.color = color.label;
     btn.style.boxShadow = `0 0 40px ${color.bg}88`;
-    // Always make sure the button is enabled and fully visible on game start
     btn.disabled = false;
     btn.style.opacity = '1';
   }
