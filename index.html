@@ -2011,7 +2011,8 @@ function gsRenderPresentationQ() {
   document.getElementById('gpbtn-wrong').disabled=true;
   document.getElementById('gpbtn-reveal').disabled=false;
   document.getElementById('gpbtn-next').textContent=GS.currentQIdx>=GS.activeQuiz.questions.length-1?'Finish 🏁':'Next ▶';
-  gsStartCountdown();
+  // Open buzzer window — countdown starts only when a table buzzes in
+  GS.questionOpen=true; GS.cdSec=5; gsUpdateCD(5);
   gsBroadcast('QUESTION_OPEN',{qIdx:GS.currentQIdx,qText:q.text,choices:q.choices,pts:q.pts});
 }
 function gsRenderTables() {
@@ -2035,7 +2036,8 @@ function gsUpdateChip(t,state) {
   const lc=document.getElementById(`gpc-lc-${t}`); if(lc) lc.textContent=(GS.tableScores[t]||0)+' LC';
 }
 function gsStartCountdown() {
-  GS.questionOpen=true; GS.cdSec=5; gsUpdateCD(5);
+  // NOTE: GS.questionOpen is managed by the caller — don't override it here
+  GS.cdSec=5; gsUpdateCD(5);
   clearInterval(GS.cdInterval);
   GS.cdInterval=setInterval(()=>{
     GS.cdSec--;
@@ -2185,6 +2187,7 @@ function gsOnTableBuzz(data) {
   if(!GS.buzzWinner) {
     GS.buzzWinner=String(tableNo);
     clearInterval(GS.cdInterval); GS.questionOpen=false;
+    gsStartCountdown(); // NOW start the 5-second answer countdown
     Object.keys(GS.tableScores).forEach(t=>gsUpdateChip(t,t===String(tableNo)?'buzzed':'dark'));
     document.getElementById('gpbtn-correct').disabled=false;
     document.getElementById('gpbtn-wrong').disabled=false;
@@ -2248,7 +2251,7 @@ function gsDismissResult() {
     GS._pendingResume = false;
     gsPlayChanceOverlay(() => {
       GS.questionOpen=true;
-      gsStartCountdown();
+      GS.cdSec=5; gsUpdateCD(5); // reset ring, but don't tick yet
       const qd=GS.activeQuiz.questions[GS.currentQIdx];
       gsBroadcast('QUESTION_OPEN',{qIdx:GS.currentQIdx,qText:qd.text,choices:qd.choices,pts:qd.pts,resume:true,wrongTables:[...GS.buzzOrder]});
     });

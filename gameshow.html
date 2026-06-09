@@ -1470,8 +1470,10 @@ function renderPresentationQuestion() {
   document.getElementById('btn-reveal').disabled = false;
   document.getElementById('btn-next').textContent = GS.currentQIdx >= quiz.questions.length - 1 ? 'Finish 🏁' : 'Next ▶';
 
-  // Start countdown & open buzzer
-  startCountdown();
+  // Open buzzer window — countdown starts only when a table buzzes in
+  GS.questionOpen = true;
+  GS.currentBuzzWinner = null;
+  updateCountdownUI(5); // show full ring, but don't tick yet
 
   // Broadcast question open
   broadcast('QUESTION_OPEN', {
@@ -1638,7 +1640,7 @@ let cdSeconds = 5;
 let cdInterval = null;
 
 function startCountdown() {
-  GS.questionOpen = true;
+  // NOTE: GS.questionOpen is managed by the caller — don't override it here
   cdSeconds = 5;
   updateCountdownUI(5);
   clearInterval(cdInterval);
@@ -1680,7 +1682,8 @@ function onTableBuzzReceived(data) {
 
   if (!GS.currentBuzzWinner) {
     GS.currentBuzzWinner = String(tableNo);
-    clearInterval(cdInterval);
+    clearInterval(cdInterval); // stop any existing timer (e.g. second-chance)
+    startCountdown();          // NOW start the 5-second answer countdown
     GS.questionOpen = false;
 
     // Light up winner, dark out others
@@ -1757,7 +1760,7 @@ function judgeAnswer(correct) {
       GS.currentBuzzWinner = null;
       playChanceOverlay(() => {
         GS.questionOpen = true;
-        startCountdown();
+        updateCountdownUI(5); // reset ring display, but don't tick yet
         broadcast('QUESTION_OPEN', {
           qIdx: GS.currentQIdx,
           qText: q.text,
