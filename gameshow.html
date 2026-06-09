@@ -1154,7 +1154,12 @@ function startPolling() {
   if (_pollInterval) return;
   _pollInterval = setInterval(async () => {
     try {
-      const r = await fetch(`${GAS_URL}?action=gameState&_=${Date.now()}`);
+      // Use POST to bypass Google CDN caching on mobile browsers (GET responses are cached)
+      const r = await fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'getGameState' })
+      });
       const j = await r.json();
       if (!j?.state?.events) return;
       for (const ev of j.state.events) {
@@ -1177,7 +1182,12 @@ function stopPolling() {
 // Called on login — immediately fetch current game state so late-joining phones catch up
 async function checkExistingGame() {
   try {
-    const r = await fetch(`${GAS_URL}?action=gameState&_=${Date.now()}`);
+    // Use POST to bypass Google CDN caching on mobile browsers (GET responses are cached)
+    const r = await fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'getGameState' })
+    });
     const j = await r.json();
     if (!j?.state?.events?.length) return;
     _lastSeenTs = 0;
