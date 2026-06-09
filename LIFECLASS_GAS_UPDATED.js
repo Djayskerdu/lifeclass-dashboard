@@ -83,6 +83,11 @@ function doGet(e) {
       case "makeupStatus":
         return output(getSheetData("MAKEUP_STATUS"));
 
+      // ── GAME SHOW STATE (cross-device sync) ──
+      case "gameState":
+        var gsRaw = PropertiesService.getScriptProperties().getProperty("GS_GAME_STATE");
+        return output({ state: gsRaw ? JSON.parse(gsRaw) : null });
+
       case "student":
         return output(getStudentById(e.parameter.studentId));
 
@@ -152,6 +157,15 @@ function doPost(e) {
       // NEW: Update student status (Active / Dropped)
       case "updateStudentStatus":
         return output(updateStudentStatus(data));
+      // ── GAME SHOW STATE (cross-device sync) ──
+      case "setGameState":
+        PropertiesService.getScriptProperties().setProperty("GS_GAME_STATE", JSON.stringify(data.state));
+        return output({ success: true });
+
+      case "clearGameState":
+        PropertiesService.getScriptProperties().deleteProperty("GS_GAME_STATE");
+        return output({ success: true });
+
 
       default:
         return output({
