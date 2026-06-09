@@ -1065,7 +1065,6 @@
     </div>
   </div>
 
-  <button class="fab" onclick="go('s-create-quiz')">＋</button>
 </div>
 
 <!-- ════════════════════════════════════════
@@ -1254,10 +1253,6 @@
     <div><h2>🎲 Random Question Round</h2><div class="sub">Ask out loud — fastest buzz wins</div></div>
   </div>
   <div class="random-host-body">
-    <div class="form-field">
-      <label>YOUR QUESTION (show on phones)</label>
-      <textarea id="rq-text" placeholder="Type the question you want to ask…" rows="3"></textarea>
-    </div>
     <div class="form-field" style="display:flex;gap:10px;align-items:flex-end">
       <div style="flex:1">
         <label>LC CREDITS TO AWARD</label>
@@ -2052,6 +2047,7 @@ function renderPresentationQuestion() {
   GS.questionOpen = true;
   GS.currentBuzzWinner = null;
   updateCountdownUI(120); // show full ring, but don't tick yet
+  playQuestionReveal();
 
   // Broadcast question open
   broadcast('QUESTION_OPEN', {
@@ -2326,6 +2322,7 @@ function onTableBuzzReceived(data) {
 
   if (!GS.currentBuzzWinner) {
     GS.currentBuzzWinner = String(tableNo);
+    playWinnerAlarm();
     clearInterval(cdInterval); // stop any existing timer (e.g. second-chance)
     startCountdown();          // NOW start the 5-second answer countdown
     GS.questionOpen = false;
@@ -2377,6 +2374,7 @@ function judgeAnswer(correct) {
   broadcast('ANSWER_RESULT', { tableNo, correct, correctIdx: q.correctIdx, points: q.points });
 
   if (correct) {
+    playCorrectSound();
     GS.tableScores[tableNo] = (GS.tableScores[tableNo] || 0) + q.points;
     updateTableChip(tableNo, 'correct');
     // Restore other tables
@@ -2427,6 +2425,7 @@ function judgeAnswer(correct) {
       revealAnswer();
     }
     showResultBanner(false, tableNo, 0, false);
+    playWrongSound();
   }
 }
 
@@ -2821,6 +2820,7 @@ function showFinalScores() {
   }
 
   go('s-final-scores');
+  playLeaderboardFanfare();
   launchFireworks();
 
   // Animate columns rising one by one
@@ -2896,11 +2896,8 @@ function showFinalScores() {
 // RANDOM ROUND — HOST SIDE
 // ════════════════════════════════════════
 function startRandomRound() {
-  const text = document.getElementById('rq-text').value.trim();
   const cred = parseInt(document.getElementById('rq-credits').value) || 100;
-  if (!text) { showToast('Enter a question first'); return; }
 
-  GS.randomQuestion = text;
   GS.randomCredits  = cred;
   GS.randomBuzzOrder = [];
   GS.randomWinner = null;
@@ -2909,7 +2906,7 @@ function startRandomRound() {
   document.getElementById('random-buzz-list').innerHTML = `
     <div style="text-align:center;padding:16px;color:var(--text2)">⏳ Waiting for tables to buzz in…</div>`;
 
-  broadcast('RANDOM_START', { question: text, credits: cred });
+  broadcast('RANDOM_START', { question: '', credits: cred });
   showToast('🎲 Random round started!');
 }
 
@@ -2920,6 +2917,7 @@ function onRandomBuzzReceived(data) {
 
   if (GS.randomBuzzOrder.length === 1) {
     GS.randomWinner = String(tableNo);
+    playWinnerAlarm();
     // Notify all phones
     broadcast('RANDOM_WINNER', { tableNo: String(tableNo) });
   }
@@ -3015,7 +3013,6 @@ function clearRandomRound() {
   GS.randomQuestion = null;
   GS.randomBuzzOrder = [];
   GS.randomWinner = null;
-  document.getElementById('rq-text').value = '';
   document.getElementById('random-buzz-list').innerHTML = `
     <div class="empty-state" style="padding:20px 0">
       <div class="es-icon">⏳</div><p>Start a round to see who buzzes first</p>
@@ -3115,17 +3112,16 @@ function onQuestionOpen(data) {
 
   if (GS.buzzOrder.includes(tableNo)) return;
 
+  // Never navigate away from the choices screen — if we buzzed first we stay there
+  const onChoices = document.getElementById('s-buzzer-choices').classList.contains('active');
+  if (onChoices) return; // stay on choices no matter what
+
   resetBuzzState('Press to Buzz In!', `Question ${data.qIdx + 1} — be the first!`);
 
   const btn = document.getElementById('big-buzzer-btn');
   if (btn) { btn.style.opacity = '1'; btn.disabled = false; }
 
-  // Only navigate away from choices if OUR table is not currently showing choices.
-  // SHOW_CHOICES arrives right after QUESTION_OPEN in polling — navigating away here
-  // would kill the choices screen before it appears.
-  const onChoices = document.getElementById('s-buzzer-choices').classList.contains('active');
-  if (onChoices && GS._showingChoicesForTable === tableNo) return; // we are answering — stay
-  if (onChoices) go('s-buzzer-game');
+  go('s-buzzer-game');
 }
 
 function onQuestionClosed() {
@@ -3238,12 +3234,119 @@ function onGameEnd() {
   showToast('🏁 Game Over!');
 }
 
+// ════════════════════════════════════════
+// SFX — Game Show Sound Effects
+// All use Web Audio API (no files needed)
+// ════════════════════════════════════════
+function _sfxCtx() {
+  return new (window.AudioContext || window.webkitAudioContext)();
+}
+function _sfxOsc(ctx, type, freq, start, dur, vol, freqEnd) {
+  const osc = ctx.createOscillator(), g = ctx.createGain();
+  osc.type = type; osc.frequency.value = freq;
+  if (freqEnd) osc.frequency.exponentialRampToValueAtTime(freqEnd, start + dur);
+  g.gain.setValueAtTime(0, start);
+  g.gain.linearRampToValueAtTime(vol, start + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.001, start + dur);
+  osc.connect(g); g.connect(ctx.destination);
+  osc.start(start); osc.stop(start + dur + 0.05);
+}
+
+// Buzzer press — loud electric buzz on the student's phone
+function playBuzzSound() {
+  try {
+    const ctx = _sfxCtx(), now = ctx.currentTime;
+    // Three rapid square-wave blasts
+    [0, 0.13, 0.26].forEach(t => _sfxOsc(ctx, 'square', 440, now+t, 0.11, 0.7, 220));
+  } catch(e) {}
+}
+
+// Buzz received on HOST — urgent alarm to grab attention
+function playWinnerAlarm() {
+  try {
+    const ctx = _sfxCtx(), now = ctx.currentTime;
+    // Rising siren + 4-note fanfare
+    _sfxOsc(ctx, 'sawtooth', 300, now,      0.35, 0.5, 900);
+    _sfxOsc(ctx, 'sawtooth', 300, now+0.38, 0.35, 0.5, 900);
+    // Fanfare: C5-E5-G5-C6
+    [[523,0.78],[659,0.92],[784,1.06],[1047,1.20]].forEach(([f,t]) =>
+      _sfxOsc(ctx, 'square', f, now+t, 0.16, 0.35)
+    );
+  } catch(e) {}
+}
+
+// Correct answer — triumphant ascending chord
+function playCorrectSound() {
+  try {
+    const ctx = _sfxCtx(), now = ctx.currentTime;
+    [[523,0],[659,0.1],[784,0.2],[1047,0.3],[1319,0.4]].forEach(([f,t]) =>
+      _sfxOsc(ctx, 'sine', f, now+t, 0.4, 0.45)
+    );
+    // Sparkle layer
+    [[2093,0.3],[2637,0.4],[3136,0.5]].forEach(([f,t]) =>
+      _sfxOsc(ctx, 'triangle', f, now+t, 0.2, 0.2)
+    );
+  } catch(e) {}
+}
+
+// Wrong answer — descending buzzer
+function playWrongSound() {
+  try {
+    const ctx = _sfxCtx(), now = ctx.currentTime;
+    _sfxOsc(ctx, 'sawtooth', 330, now,      0.25, 0.5, 110);
+    _sfxOsc(ctx, 'sawtooth', 220, now+0.28, 0.30, 0.5, 80);
+  } catch(e) {}
+}
+
+// Countdown tick (called each second 3→1)
+function playCountdownTick(isLast) {
+  try {
+    const ctx = _sfxCtx(), now = ctx.currentTime;
+    const freq = isLast ? 880 : 660;
+    _sfxOsc(ctx, 'sine', freq, now, isLast ? 0.3 : 0.18, isLast ? 0.6 : 0.4);
+  } catch(e) {}
+}
+
+// Question reveal — short dramatic hit
+function playQuestionReveal() {
+  try {
+    const ctx = _sfxCtx(), now = ctx.currentTime;
+    _sfxOsc(ctx, 'square', 220, now,      0.08, 0.6, 440);
+    _sfxOsc(ctx, 'square', 440, now+0.09, 0.12, 0.5, 880);
+    _sfxOsc(ctx, 'sine',   880, now+0.22, 0.25, 0.35);
+  } catch(e) {}
+}
+
+// Leaderboard / final scores — grand fanfare
+function playLeaderboardFanfare() {
+  try {
+    const ctx = _sfxCtx(), now = ctx.currentTime;
+    // Drum roll
+    for (let i = 0; i < 8; i++) {
+      const buf = ctx.createBuffer(1, ctx.sampleRate*0.04, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let j = 0; j < d.length; j++) d[j] = (Math.random()*2-1);
+      const src = ctx.createBufferSource(), g = ctx.createGain();
+      g.gain.setValueAtTime(0.3 + i*0.04, now + i*0.07);
+      g.gain.exponentialRampToValueAtTime(0.001, now + i*0.07 + 0.06);
+      src.buffer = buf; src.connect(g); g.connect(ctx.destination);
+      src.start(now + i*0.07); src.stop(now + i*0.07 + 0.08);
+    }
+    // Grand chord stabs
+    const stabs = [[523,0.6],[659,0.6],[784,0.6],[1047,0.75],[1319,0.9],[1047,1.1],[1319,1.2],[1568,1.35]];
+    stabs.forEach(([f,t]) => _sfxOsc(ctx, 'square', f, now+t, 0.28, 0.35));
+    [[262,0.6],[330,0.75],[392,0.9],[523,1.1]].forEach(([f,t]) =>
+      _sfxOsc(ctx, 'sawtooth', f, now+t, 0.28, 0.3)
+    );
+  } catch(e) {}
+}
+
 function pressBuzzer() {
   const btn = document.getElementById('big-buzzer-btn');
   btn.classList.add('pressed');
   setTimeout(() => btn.classList.remove('pressed'), 400);
 
-  // Vibrate if supported
+  playBuzzSound();
   if (navigator.vibrate) navigator.vibrate(80);
 
   const tableNo = String(GS.currentBuzzerFaculty?.['Table Assigned'] || '');
@@ -3288,6 +3391,7 @@ function pressRandomBuzzer() {
   const btn = document.getElementById('random-buzzer-btn');
   btn.classList.add('pressed');
   setTimeout(() => btn.classList.remove('pressed'), 400);
+  playBuzzSound();
   if (navigator.vibrate) navigator.vibrate(80);
 
   const tableNo = String(GS.currentBuzzerFaculty?.['Table Assigned'] || '');
