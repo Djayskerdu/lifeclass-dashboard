@@ -162,6 +162,11 @@ function doPost(e) {
         PropertiesService.getScriptProperties().setProperty("GS_GAME_STATE", JSON.stringify(data.state));
         return output({ success: true });
 
+      // getGameState via POST — avoids GAS GET CDN caching on mobile devices
+      case "getGameState":
+        var gsRaw2 = PropertiesService.getScriptProperties().getProperty("GS_GAME_STATE");
+        return output({ state: gsRaw2 ? JSON.parse(gsRaw2) : null });
+
       case "clearGameState":
         PropertiesService.getScriptProperties().deleteProperty("GS_GAME_STATE");
         return output({ success: true });
