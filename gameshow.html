@@ -2327,15 +2327,16 @@ function playQuestionPreviewThenCountdown(overlay, qNum, qText, onDone) {
     } else {
       clearInterval(readIv);
       qtimerEl.textContent = 'Here we go!';
-      // Fade out question box
+      // Fade out question box then go straight to choices
       setTimeout(() => {
         qboxEl.style.opacity = '0';
         qboxEl.style.transform = 'translateY(-20px)';
         labelEl.style.opacity = '0';
         setTimeout(() => {
           qboxEl.style.display = 'none';
-          // Launch 3-2-1 GO countdown
-          runIntroCd(overlay, onDone);
+          overlay.style.display = 'none';
+          _introReset();
+          onDone();
         }, 500);
       }, 500);
     }
@@ -4172,7 +4173,6 @@ function _updateFsBtn() {
   btn.style.color = isFs ? '#FFD700' : 'rgba(255,255,255,0.5)';
 }
 document.addEventListener('DOMContentLoaded', () => {
-  loadBaseData();
   loadQuizzes();
 
   // Wire up create quiz button
@@ -4184,13 +4184,25 @@ document.addEventListener('DOMContentLoaded', () => {
   const fab = document.querySelector('.fab');
   if (fab) fab.onclick = go_create;
 
-  // Also pre-load student tables for score tracking
-  apiGet('students').then(res => {
-    if (res.data) {
-      const tables = [...new Set(res.data.map(s => String(s['Table No'])).filter(Boolean))];
-      localStorage.setItem('gs_tables_v1', JSON.stringify(tables));
+  loadBaseData().then(() => {
+    // Build table list from tableGuides (always includes all tables even with 0 students)
+    if (GS.tableGuides && GS.tableGuides.length) {
+      const tables = GS.tableGuides
+        .map(g => String(g['Table No']))
+        .filter(Boolean)
+        .sort((a, b) => parseInt(a) - parseInt(b));
+      if (tables.length) localStorage.setItem('gs_tables_v1', JSON.stringify(tables));
     }
-  }).catch(() => {});
+    // Also fetch students as a secondary source (fills in any tables not in tableGuides)
+    apiGet('students').then(res => {
+      if (res.data) {
+        const fromStudents = [...new Set(res.data.map(s => String(s['Table No'])).filter(Boolean))];
+        const existing = JSON.parse(localStorage.getItem('gs_tables_v1') || '[]');
+        const merged = [...new Set([...existing, ...fromStudents])].sort((a,b) => parseInt(a)-parseInt(b));
+        localStorage.setItem('gs_tables_v1', JSON.stringify(merged));
+      }
+    }).catch(() => {});
+  });
 });
 </script>
 </body>
