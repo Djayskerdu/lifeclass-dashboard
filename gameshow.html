@@ -356,71 +356,96 @@
 
   .pres-body { flex: 1; display: flex; flex-direction: column; padding: 16px; }
 
-  /* Question display */
+  /* pres-q-num / pres-q-text / pres-choices — defined in tables-strip section above */
+
+  /* Table buzzer status strip */
+  /* ── SCOREBOARD STRIP ── */
+  .tables-strip {
+    display: flex; gap: 6px; flex-wrap: nowrap; justify-content: center;
+    padding: 0 8px; margin-bottom: 12px; overflow-x: auto;
+  }
+  .table-chip {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 8px 12px; border-radius: 10px;
+    font-size: 10px; font-weight: 700;
+    border: 2px solid transparent;
+    transition: all 0.3s; flex-shrink: 0;
+    min-width: 80px; max-width: 110px;
+    text-align: center;
+  }
+  .table-chip .tc-name {
+    font-size: 11px; font-weight: 800; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+  }
+  .table-chip .tc-score {
+    font-size: 18px; font-weight: 900; line-height: 1.2; color: var(--gold);
+    margin-top: 2px;
+  }
+  .table-chip .tc-label { font-size: 9px; color: rgba(255,255,255,0.4); letter-spacing: 0.5px; }
+  .table-chip.idle { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.12); color: rgba(255,255,255,0.7); }
+  .table-chip.buzzed { animation: blink-buzz 0.5s infinite alternate; }
+  .table-chip.dark { background: rgba(255,255,255,0.02); border-color: rgba(255,255,255,0.04); color: rgba(255,255,255,0.2); }
+  .table-chip.dark .tc-score { color: rgba(255,255,255,0.2); }
+  .table-chip.correct { background: rgba(46,125,50,0.3); border-color: #4caf50; }
+  .table-chip.correct .tc-score { color: #a5d6a7; }
+  .table-chip.wrong { background: rgba(229,57,53,0.15); border-color: rgba(229,57,53,0.4); }
+  .table-chip.wrong .tc-score { color: #ef9a9a; }
+
+  @keyframes blink-buzz {
+    from { box-shadow: 0 0 0 rgba(255,215,0,0); }
+    to   { box-shadow: 0 0 24px rgba(255,215,0,0.8); transform: scale(1.05); }
+  }
+
+  /* ── QUESTION BOX ── */
   .pres-q-num {
-    font-size: 11px; font-weight: 700; color: var(--gold);
-    letter-spacing: 1px; text-align: center; margin-bottom: 8px;
+    font-size: 12px; font-weight: 800; color: var(--gold);
+    letter-spacing: 2px; text-align: center; margin-bottom: 6px;
+    text-transform: uppercase;
   }
   .pres-q-text {
-    font-size: 18px; font-weight: 700; text-align: center;
-    line-height: 1.4; margin-bottom: 20px;
-    background: rgba(255,255,255,0.04);
-    border-radius: 14px; padding: 18px 16px;
-    border: 1.5px solid rgba(255,255,255,0.08);
+    font-size: clamp(16px, 2.4vw, 26px); font-weight: 800; text-align: center;
+    line-height: 1.4; margin-bottom: 16px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 16px; padding: clamp(16px,2vw,28px) clamp(16px,3vw,32px);
+    border: 2px solid rgba(255,255,255,0.12);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
   }
-  .pres-choices { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+
+  /* ── 2×2 CHOICES GRID ── */
+  .pres-choices {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
   .pres-choice {
     display: flex; align-items: center; gap: 12px;
-    background: rgba(255,255,255,0.05);
-    border: 1.5px solid rgba(255,255,255,0.1);
-    border-radius: 12px; padding: 13px 16px;
+    background: rgba(255,255,255,0.06);
+    border: 2px solid rgba(255,255,255,0.12);
+    border-radius: 12px; padding: 14px 16px;
     transition: all 0.3s;
   }
   .pres-choice .choice-ltr {
-    width: 32px; height: 32px; border-radius: 50%;
-    background: rgba(255,255,255,0.1);
-    font-size: 14px; font-weight: 800;
+    width: 34px; height: 34px; border-radius: 8px;
+    background: rgba(255,255,255,0.13);
+    font-size: 14px; font-weight: 900;
     display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
+    flex-shrink: 0; letter-spacing: 0;
   }
-  .pres-choice .choice-txt { font-size: 14px; font-weight: 600; }
+  .pres-choice .choice-txt { font-size: clamp(13px,1.6vw,16px); font-weight: 600; line-height: 1.3; }
   .pres-choice.correct {
-    background: rgba(46,125,50,0.3);
+    background: rgba(46,125,50,0.35);
     border-color: #4caf50;
+    box-shadow: 0 0 20px rgba(76,175,80,0.3);
   }
   .pres-choice.wrong {
-    background: rgba(229,57,53,0.15);
-    border-color: rgba(229,57,53,0.3);
-    opacity: 0.5;
+    background: rgba(229,57,53,0.12);
+    border-color: rgba(229,57,53,0.25);
+    opacity: 0.45;
   }
   .pres-choice.highlight {
     background: rgba(255,215,0,0.15);
     border-color: var(--gold);
-  }
-
-  /* Table buzzer status strip */
-  .tables-strip {
-    display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
-    margin-bottom: 14px;
-  }
-  .table-chip {
-    display: flex; flex-direction: column; align-items: center;
-    padding: 10px 14px; border-radius: 12px;
-    font-size: 11px; font-weight: 700;
-    border: 2px solid transparent;
-    transition: all 0.3s;
-    min-width: 70px;
-  }
-  .table-chip .tc-num { font-size: 16px; font-weight: 800; }
-  .table-chip.idle { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); color: var(--text2); }
-  .table-chip.buzzed { animation: blink-buzz 0.5s infinite alternate; }
-  .table-chip.dark { background: rgba(255,255,255,0.02); border-color: rgba(255,255,255,0.04); color: rgba(255,255,255,0.2); }
-  .table-chip.correct { background: rgba(46,125,50,0.25); border-color: #4caf50; color: #81c784; }
-  .table-chip.wrong { background: rgba(229,57,53,0.1); border-color: rgba(229,57,53,0.3); color: #e57373; }
-
-  @keyframes blink-buzz {
-    from { box-shadow: 0 0 0 rgba(255,215,0,0); }
-    to   { box-shadow: 0 0 20px rgba(255,215,0,0.7); transform: scale(1.04); }
   }
 
   /* Host action bar */
@@ -2071,10 +2096,9 @@ function renderTablesStrip() {
   document.getElementById('tables-strip').innerHTML = tables.map(t => {
     const color = getTableColor(t);
     const name = getTableName(t);
-    const shortName = name.length > 14 ? name.slice(0, 13) + '…' : name;
+    const shortName = name.length > 12 ? name.slice(0, 11) + '…' : name;
     return `<div class="table-chip idle" id="tchip-${t}" style="background:${color.bg}22;border-color:${color.border}44;color:${color.label}">
-      <div class="tc-num" style="font-size:11px;font-weight:800;">${shortName}</div>
-      <div>${GS.tableScores[t] || 0} LC</div>
+      <div class="tc-name">${shortName}</div>
     </div>`;
   }).join('');
 }
@@ -2084,6 +2108,9 @@ function updateTableChip(tableNo, state) {
   if (!chip) return;
   const color = getTableColor(tableNo);
   chip.className = 'table-chip ' + state;
+  // Always refresh score
+  const scoreEl = document.getElementById(`tchip-score-${tableNo}`);
+  if (scoreEl) scoreEl.textContent = GS.tableScores[tableNo] || 0;
   if (state === 'buzzed') {
     chip.style.background = color.bg;
     chip.style.borderColor = color.border;
