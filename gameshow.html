@@ -3120,7 +3120,7 @@ function onQuestionOpen(data) {
   const onChoices = document.getElementById('s-buzzer-choices').classList.contains('active');
   if (onChoices) return;
 
-  // Unlock the buzzer — question is now open, rapid clicks allowed
+  // Unlock the buzzer — question is now open, re-enable for new question
   const btn = document.getElementById('big-buzzer-btn');
   if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
 
@@ -3144,12 +3144,13 @@ function phoneShowTimeUp() {
 
 function onBuzzWinner(data) {
   const myTable = String(GS.currentBuzzerFaculty?.['Table Assigned'] || '');
+  const btn = document.getElementById('big-buzzer-btn');
   if (data.tableNo === myTable) {
-    resetBuzzState('🔔 YOU BUZZED!', 'Choose your answer on screen!');
+    resetBuzzState('🏆 YOU BUZZED FIRST!', 'Choose your answer on screen!');
+    if (btn) { btn.disabled = true; btn.style.opacity = '1'; }
   } else {
     resetBuzzState(`${getTableName(data.tableNo)} buzzed first!`, 'Wait for their answer…');
-    const btn = document.getElementById('big-buzzer-btn');
-    if (btn) btn.style.opacity = '0.3';
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.3'; }
   }
 }
 
@@ -3347,9 +3348,17 @@ function playLeaderboardFanfare() {
 
 function pressBuzzer() {
   const btn = document.getElementById('big-buzzer-btn');
+  if (!btn || btn.disabled) return;
+
+  // Disable immediately to prevent double-buzz spam
+  btn.disabled = true;
+  btn.style.opacity = '0.6';
   btn.classList.add('pressed');
   setTimeout(() => btn.classList.remove('pressed'), 300);
   if (navigator.vibrate) navigator.vibrate(60);
+
+  // Show sending feedback right away
+  resetBuzzState('📡 Buzzing in…', 'Sending your buzz…');
 
   const tableNo = String(GS.currentBuzzerFaculty?.['Table Assigned'] || '');
   const event = { event: 'TABLE_BUZZ', data: { tableNo, ts: Date.now() }, ts: Date.now() };
@@ -3357,7 +3366,14 @@ function pressBuzzer() {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify({ action: 'appendGameEvent', event })
-  }).catch(() => {});
+  }).then(() => {
+    resetBuzzState('✅ Buzz sent!', 'Waiting for host…');
+  }).catch(() => {
+    // Re-enable on network error so they can try again
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    resetBuzzState('⚠️ Network error', 'Tap again to retry');
+  });
 }
 
 function resetBuzzState(label, sub) {
@@ -3379,7 +3395,7 @@ function onRandomStart(data) {
   }
 
   const btn = document.getElementById('random-buzzer-btn');
-  if (btn) btn.style.opacity = '1';
+  if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
   document.getElementById('rbuzz-state-label').textContent = 'Ready to buzz!';
   document.getElementById('rbuzz-state-sub').textContent = 'Press when you know the answer!';
 
@@ -3395,9 +3411,18 @@ function onRandomStart(data) {
 
 function pressRandomBuzzer() {
   const btn = document.getElementById('random-buzzer-btn');
+  if (!btn || btn.disabled) return;
+
+  // Disable immediately to prevent double-buzz spam
+  btn.disabled = true;
+  btn.style.opacity = '0.6';
   btn.classList.add('pressed');
   setTimeout(() => btn.classList.remove('pressed'), 300);
   if (navigator.vibrate) navigator.vibrate(60);
+
+  // Show sending feedback right away
+  document.getElementById('rbuzz-state-label').textContent = '📡 Buzzing in…';
+  document.getElementById('rbuzz-state-sub').textContent = 'Sending your buzz…';
 
   const tableNo = String(GS.currentBuzzerFaculty?.['Table Assigned'] || '');
   const event = { event: 'RANDOM_BUZZ', data: { tableNo, ts: Date.now() }, ts: Date.now() };
@@ -3405,19 +3430,31 @@ function pressRandomBuzzer() {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify({ action: 'appendGameEvent', event })
-  }).catch(() => {});
+  }).then(() => {
+    document.getElementById('rbuzz-state-label').textContent = '✅ Buzz sent!';
+    document.getElementById('rbuzz-state-sub').textContent = 'Waiting for result…';
+  }).catch(() => {
+    // Re-enable on network error so they can try again
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    document.getElementById('rbuzz-state-label').textContent = '⚠️ Network error';
+    document.getElementById('rbuzz-state-sub').textContent = 'Tap again to retry';
+  });
 }
 
 function onRandomWinner(data) {
   const myTable = String(GS.currentBuzzerFaculty?.['Table Assigned'] || '');
+  const btn = document.getElementById('random-buzzer-btn');
   if (data.tableNo === myTable) {
     document.getElementById('rbuzz-state-label').textContent = '🏆 YOU\'RE FIRST!';
     document.getElementById('rbuzz-state-sub').textContent = 'Answer out loud!';
     showToast('🏆 You buzzed first! Answer out loud!');
     if (navigator.vibrate) navigator.vibrate([100,50,100,50,200]);
+    if (btn) { btn.disabled = true; btn.style.opacity = '1'; }
   } else {
     document.getElementById('rbuzz-state-label').textContent = `${getTableName(data.tableNo)} was first`;
     document.getElementById('rbuzz-state-sub').textContent = 'Wait for the next question…';
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.3'; }
   }
 }
 
