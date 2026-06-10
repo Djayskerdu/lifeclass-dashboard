@@ -1253,7 +1253,7 @@
 ════════════════════════════════════════ -->
 <div class="screen" id="s-final-scores">
   <div class="section-header">
-    <button class="back-btn" onclick="stopBGM();go('s-host-home')">←</button>
+    <button class="back-btn" onclick="stopBGM();stopConfetti();stopFireworks();go('s-host-home')">←</button>
     <div><h2>🏆 Final Scores</h2><div class="sub" id="final-quiz-label">—</div></div>
     <button onclick="toggleFullscreen()" style="margin-left:auto;border:1.5px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5);border-radius:20px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:0.5px;white-space:nowrap;">⛶ Fullscreen</button>
   </div>
@@ -3005,6 +3005,8 @@ function exitPresentation() {
   stopGameShowBg();
   stopBGM();
   stopPolling();
+  stopConfetti();
+  stopFireworks();
   go('s-host-home');
 }
 
@@ -3742,79 +3744,110 @@ function onRandomWinner(data) {
 }
 
 // ════════════════════════════════════════
-// FIREWORKS
+// FIREWORKS — looping
 // ════════════════════════════════════════
+let _fwAnimId = null;
+let _fwLooping = false;
+
 function launchFireworks() {
   const canvas = document.getElementById('firework-canvas');
   if (!canvas) return;
+  if (_fwLooping) return; // already running
+  _fwLooping = true;
+
   const ctx = canvas.getContext('2d');
-  canvas.width = window.innerWidth;
+  canvas.width  = window.innerWidth;
   canvas.height = window.innerHeight;
 
-  const particles = [];
-  const colors = ['#FFD700','#FF6B6B','#4FC3F7','#81C784','#CE93D8','#FFB74D'];
+  const colors = ['#FFD700','#FF6B6B','#4FC3F7','#81C784','#CE93D8','#FFB74D','#F06292','#80DEEA'];
+  let particles = [];
 
-  for (let i = 0; i < 80; i++) {
-    particles.push({
-      x: canvas.width / 2 + (Math.random()-0.5)*200,
-      y: canvas.height / 3,
-      vx: (Math.random()-0.5) * 12,
-      vy: -Math.random()*10 - 2,
-      life: 1,
-      color: colors[Math.floor(Math.random()*colors.length)],
-      size: Math.random()*4+2
-    });
+  function spawnBurst() {
+    const cx = canvas.width  * (0.2 + Math.random() * 0.6);
+    const cy = canvas.height * (0.1 + Math.random() * 0.5);
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    for (let i = 0; i < 70; i++) {
+      const angle = (Math.PI * 2 / 70) * i + Math.random() * 0.3;
+      const speed = 3 + Math.random() * 7;
+      particles.push({
+        x: cx, y: cy,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 2,
+        life: 1,
+        decay: 0.013 + Math.random() * 0.01,
+        color,
+        size: Math.random() * 3 + 1.5
+      });
+    }
   }
 
-  let animId;
+  // Fire a burst every 800ms
+  spawnBurst();
+  const burstInterval = setInterval(() => {
+    if (!_fwLooping) { clearInterval(burstInterval); return; }
+    spawnBurst();
+  }, 800);
+  _confettiTimers.push(burstInterval); // reuse same stop mechanism
+
   function animate() {
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+    if (!_fwLooping) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     particles.forEach(p => {
-      p.x += p.vx;
-      p.y += p.vy;
-      p.vy += 0.3;
-      p.life -= 0.02;
-      ctx.globalAlpha = p.life;
+      p.x  += p.vx;
+      p.y  += p.vy;
+      p.vy += 0.18; // gravity
+      p.vx *= 0.98;
+      p.life -= p.decay;
+      ctx.globalAlpha = Math.max(0, p.life);
       ctx.fillStyle = p.color;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       ctx.fill();
     });
     ctx.globalAlpha = 1;
-    if (particles.some(p => p.life > 0)) {
-      animId = requestAnimationFrame(animate);
-    } else {
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-    }
+    particles = particles.filter(p => p.life > 0);
+    _fwAnimId = requestAnimationFrame(animate);
   }
   animate();
-  setTimeout(() => { cancelAnimationFrame(animId); ctx.clearRect(0,0,canvas.width,canvas.height); }, 3000);
+}
+
+function stopFireworks() {
+  _fwLooping = false;
+  if (_fwAnimId) { cancelAnimationFrame(_fwAnimId); _fwAnimId = null; }
+  const canvas = document.getElementById('firework-canvas');
+  if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 }
 
 // ════════════════════════════════════════
-// CONFETTI SHOWER — for Final Scores
+// CONFETTI SHOWER — looping
 // ════════════════════════════════════════
 let _confettiTimers = [];
+let _confettiLooping = false;
+
 function launchConfetti() {
-  // Clear any previous confetti timers
-  _confettiTimers.forEach(t => clearTimeout(t));
+  if (_confettiLooping) return;
+  _confettiLooping = true;
+  _confettiTimers.forEach(t => clearInterval(t));
   _confettiTimers = [];
-  // Remove existing pieces
   document.querySelectorAll('.confetti-piece').forEach(el => el.remove());
 
   const colors = ['#FFD700','#FF6B6B','#4FC3F7','#81C784','#CE93D8','#FFB74D','#F06292','#80DEEA','#AED581'];
   const shapes = ['square','circle','rect'];
 
   function spawnBurst(count) {
+    if (!_confettiLooping) return;
     for (let i = 0; i < count; i++) {
       const piece = document.createElement('div');
       piece.className = 'confetti-piece';
-      const color = colors[Math.floor(Math.random() * colors.length)];
-      const shape = shapes[Math.floor(Math.random() * shapes.length)];
-      const size = 8 + Math.random() * 8;
-      const left = Math.random() * 100;
+      const color    = colors[Math.floor(Math.random() * colors.length)];
+      const shape    = shapes[Math.floor(Math.random() * shapes.length)];
+      const size     = 8 + Math.random() * 8;
+      const left     = Math.random() * 100;
       const duration = 2.5 + Math.random() * 2;
-      const delay = Math.random() * 0.5;
+      const delay    = Math.random() * 0.6;
       piece.style.cssText = `
         left: ${left}%;
         width: ${shape === 'rect' ? size * 2 : size}px;
@@ -3823,22 +3856,26 @@ function launchConfetti() {
         border-radius: ${shape === 'circle' ? '50%' : shape === 'rect' ? '2px' : '1px'};
         animation-duration: ${duration}s;
         animation-delay: ${delay}s;
-        opacity: 0;
       `;
-      // Set opacity after tiny delay so animation can trigger
-      piece.addEventListener('animationstart', () => { piece.style.opacity = '1'; });
       document.body.appendChild(piece);
-      const t = setTimeout(() => piece.remove(), (duration + delay + 0.5) * 1000);
-      _confettiTimers.push(t);
+      setTimeout(() => piece.remove(), (duration + delay + 0.3) * 1000);
     }
   }
 
-  // Multiple bursts over time for a continuous shower
-  spawnBurst(60);
-  const t1 = setTimeout(() => spawnBurst(40), 1200);
-  const t2 = setTimeout(() => spawnBurst(40), 2800);
-  const t3 = setTimeout(() => spawnBurst(30), 4500);
-  _confettiTimers.push(t1, t2, t3);
+  // Spawn a burst every 600ms continuously
+  spawnBurst(30);
+  const iv = setInterval(() => {
+    if (!_confettiLooping) { clearInterval(iv); return; }
+    spawnBurst(20);
+  }, 600);
+  _confettiTimers.push(iv);
+}
+
+function stopConfetti() {
+  _confettiLooping = false;
+  _confettiTimers.forEach(t => clearInterval(t));
+  _confettiTimers = [];
+  document.querySelectorAll('.confetti-piece').forEach(el => el.remove());
 }
 let _gsBgAnimId = null;
 
