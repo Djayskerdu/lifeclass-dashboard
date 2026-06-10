@@ -1193,7 +1193,7 @@
 ════════════════════════════════════════ -->
 <div class="screen" id="s-final-scores">
   <div class="section-header">
-    <button class="back-btn" onclick="go('s-host-home')">←</button>
+    <button class="back-btn" onclick="stopBGM();go('s-host-home')">←</button>
     <div><h2>🏆 Final Scores</h2><div class="sub" id="final-quiz-label">—</div></div>
   </div>
   <div id="final-layout">
@@ -1250,7 +1250,7 @@
 ════════════════════════════════════════ -->
 <div class="screen" id="s-random-host">
   <div class="section-header">
-    <button class="back-btn" onclick="go('s-host-home')">←</button>
+    <button class="back-btn" onclick="stopBGM();go('s-host-home')">←</button>
     <div><h2>🎲 Random Question Round</h2><div class="sub">Ask out loud — fastest buzz wins</div></div>
   </div>
   <div class="random-host-body">
@@ -2410,26 +2410,30 @@ function judgeAnswer(correct) {
     const remaining = Object.keys(GS.tableScores).filter(t =>
       t !== tableNo && !GS.buzzOrder.includes(t)
     );
+    playWrongSound();
+    showResultBanner(false, tableNo, 0, false);
     if (remaining.length > 0) {
       remaining.forEach(t => updateTableChip(t, 'idle'));
       GS.currentBuzzWinner = null;
-      playChanceOverlay(() => {
-        GS.questionOpen = true;
-        updateCountdownUI(120);
-        broadcast('QUESTION_OPEN', {
-          qIdx: GS.currentQIdx,
-          qText: q.text,
-          choices: q.choices,
-          points: q.points,
-          resume: true,
-          wrongTables: [...GS.buzzOrder]
+      // Hide wrong banner first, then show "It's your chance" overlay
+      setTimeout(() => {
+        dismissResult();
+        playChanceOverlay(() => {
+          GS.questionOpen = true;
+          updateCountdownUI(120);
+          broadcast('QUESTION_OPEN', {
+            qIdx: GS.currentQIdx,
+            qText: q.text,
+            choices: q.choices,
+            points: q.points,
+            resume: true,
+            wrongTables: [...GS.buzzOrder]
+          });
         });
-      });
+      }, 2000);
     } else {
       revealAnswer();
     }
-    showResultBanner(false, tableNo, 0, false);
-    playWrongSound();
   }
 }
 
@@ -2582,6 +2586,7 @@ async function getTableStudents(tableNo) {
 }
 
 function endGame() {
+  stopBGM();
   broadcast('GAME_END', { scores: GS.tableScores });
   playWinnerReveal();
 }
@@ -3385,6 +3390,7 @@ function resetBuzzState(label, sub) {
 
 // ─── Random round on phone ───
 function onRandomStart(data) {
+  clearTimeout(GS._randomBuzzTimeout); // reset any pending fallback from last round
   const tableNo = String(GS.currentBuzzerFaculty?.['Table Assigned'] || '');
   document.getElementById('rb2-table-label').textContent = getTableName(tableNo);
 
@@ -3433,6 +3439,17 @@ function pressRandomBuzzer() {
   }).then(() => {
     document.getElementById('rbuzz-state-label').textContent = '✅ Buzz sent!';
     document.getElementById('rbuzz-state-sub').textContent = 'Waiting for result…';
+    // Fallback: if RANDOM_WINNER never arrives within 8s, reset button
+    clearTimeout(GS._randomBuzzTimeout);
+    GS._randomBuzzTimeout = setTimeout(() => {
+      const lbl = document.getElementById('rbuzz-state-label');
+      if (lbl && lbl.textContent === '✅ Buzz sent!') {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        lbl.textContent = 'Ready to buzz!';
+        document.getElementById('rbuzz-state-sub').textContent = 'Press when you know the answer!';
+      }
+    }, 8000);
   }).catch(() => {
     // Re-enable on network error so they can try again
     btn.disabled = false;
@@ -3443,6 +3460,7 @@ function pressRandomBuzzer() {
 }
 
 function onRandomWinner(data) {
+  clearTimeout(GS._randomBuzzTimeout); // cancel fallback timer — result arrived
   const myTable = String(GS.currentBuzzerFaculty?.['Table Assigned'] || '');
   const btn = document.getElementById('random-buzzer-btn');
   if (data.tableNo === myTable) {
