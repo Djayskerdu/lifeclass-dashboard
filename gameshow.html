@@ -2634,26 +2634,11 @@ function nextQuestion() {
 
 function playNextQuestionCountdown(qNum, onDone) {
   const overlay = document.getElementById('pres-intro-overlay');
-  const msgEl   = document.getElementById('pres-intro-msg');
-
   _introReset();
   overlay.style.display = 'flex';
-
-  // Show "Proceeding…" briefly, then go straight to question preview
-  msgEl.textContent = 'Proceeding to the Next Question…';
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    msgEl.style.opacity = '1';
-    msgEl.style.transform = 'scale(1)';
-  }));
-
-  setTimeout(() => {
-    msgEl.style.opacity = '0';
-    msgEl.style.transform = 'scale(0.85)';
-    setTimeout(() => {
-      const q = GS.activeQuiz?.questions[qNum - 1];
-      playQuestionPreviewThenCountdown(overlay, qNum, q?.text || '', onDone);
-    }, 400);
-  }, 1200);
+  // Go straight to LC Credits reveal → question preview → choices
+  const q = GS.activeQuiz?.questions[qNum - 1];
+  playQuestionPreviewThenCountdown(overlay, qNum, q?.text || '', onDone);
 }
 
 async function awardTableCredits(tableNo, pts, reason) {
