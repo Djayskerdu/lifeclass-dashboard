@@ -493,6 +493,7 @@ function renderFStudents() {
     present: { bg: '#e8f5ee', color: '#2d6a4f', label: 'Present' },
     late:    { bg: '#fff5e0', color: '#c9960c', label: 'Late'    },
     absent:  { bg: '#fdecea', color: '#e53935', label: 'Absent'  },
+    none:    { bg: '#eceef1', color: '#6b7280', label: 'Not yet recorded' },
   };
 
   // Tally tardiness and absences for warning
@@ -501,8 +502,18 @@ function renderFStudents() {
       String(a["Student ID"]) === String(s["Student ID"]) &&
       String(a["Week No"]) === String(week)
     );
-    const rawStatus = (att?.["Attendance Status"] || att?.["Status"] || (att ? "present" : "absent")).toLowerCase();
-    const key = rawStatus.includes("late") ? "late" : rawStatus.includes("present") ? "present" : "absent";
+
+    // IMPORTANT: no attendance row at all (never scanned, not marked absent)
+    // must NOT be displayed as "Absent" — that's a real, distinct status
+    // someone explicitly recorded. Missing data just means nothing has
+    // happened yet for this student/week.
+    let key;
+    if (!att) {
+      key = "none";
+    } else {
+      const rawStatus = (att["Attendance Status"] || att["Status"] || "present").toLowerCase();
+      key = rawStatus.includes("late") ? "late" : rawStatus.includes("absent") ? "absent" : "present";
+    }
     const { bg, color, label } = statusColors[key];
 
     // Count totals for warnings
