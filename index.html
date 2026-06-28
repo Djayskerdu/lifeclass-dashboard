@@ -56,6 +56,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       Home
     </button>
+    <button class="sidebar-btn" id="sidebar-back-to-admin-btn" onclick="go('s-admin-home')" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6" transform="rotate(180 12 12)"/></svg>
+      Back to Admin
+    </button>
     <button class="sidebar-btn" onclick="go('s-f-lessons')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
       Lessons
@@ -88,6 +92,10 @@
     <button class="sidebar-btn" onclick="go('s-admin-home')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       Home
+    </button>
+    <button class="sidebar-btn" id="sidebar-my-table-btn" onclick="go('s-faculty-home')" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      My Table
     </button>
     <button class="sidebar-btn" onclick="go('s-a-student-att')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -248,6 +256,14 @@
       <div style="color:#fff;font-family:var(--font-head);font-size:20px;font-weight:700;margin-top:2px" id="f-home-name">—</div>
       <div style="color:rgba(255,255,255,0.6);font-size:12px;margin-top:4px" id="f-home-role">—</div>
     </div>
+    <div id="f-back-to-admin-wrap" style="display:none">
+      <div class="slabel">Director / Consultant</div>
+      <button class="menu-item" onclick="go('s-admin-home')">
+        <div class="mi-icon" style="background:#e8f5ee"><svg viewBox="0 0 24 24" stroke="#2d6a4f" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+        <div class="mi-text"><div class="mi-title">Back to Admin View</div><div class="mi-sub">All tables, leaderboard &amp; reports</div></div>
+        <svg class="mi-arr" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
     <div class="slabel">Lessons</div>
     <button class="menu-item" onclick="go('s-f-lessons')">
       <div class="mi-icon" style="background:#e8f0fb"><svg viewBox="0 0 24 24" stroke="#1a3a5c"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
@@ -281,6 +297,7 @@
     <button class="ni" onclick="go('s-f-lessons')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Lessons</button>
     <button class="ni" onclick="go('s-f-students')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Attendance</button>
     <button class="ni" onclick="go('s-f-devotional')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Devot.</button>
+    <button class="ni" id="f-bnav-admin" onclick="go('s-admin-home')" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Admin</button>
     <button class="ni" onclick="logout()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>Logout</button>
   </div>
 </div>
@@ -471,6 +488,14 @@
           <div style="font-size:11px;color:rgba(255,255,255,0.7);margin-top:6px">Total Dropped</div>
         </div>
       </div>
+    </div>
+    <div id="a-my-table-wrap" style="display:none">
+      <div class="slabel">My Table</div>
+      <button class="menu-item" onclick="go('s-faculty-home')">
+        <div class="mi-icon" style="background:#e8f0fb"><svg viewBox="0 0 24 24" stroke="#1a3a5c" fill="none"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+        <div class="mi-text"><div class="mi-title" id="a-my-table-title">Table Guide View</div><div class="mi-sub">Manage attendance, payments &amp; credits for your own table</div></div>
+        <svg class="mi-arr" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
     </div>
     <div class="slabel">Manage</div>
     <button class="menu-item" onclick="go('s-a-student-att')">
@@ -2906,16 +2931,33 @@ function updateSidebar() {
   if (userAv)   userAv.textContent   = (faculty['Full Name'] || '?')[0].toUpperCase();
   if (sidebarBot) sidebarBot.style.display = isPortalScreen ? 'none' : 'block';
 
-  // Show correct nav
+  // Show correct nav — prefer the nav that matches the screen actually being
+  // shown (needed for dual-role users like a Director who is also a Table
+  // Guide and can switch between the Admin view and their own Table Guide view).
   ['sidebar-portal-nav','sidebar-faculty-nav','sidebar-admin-nav','sidebar-record-nav']
     .forEach(id => { var el = document.getElementById(id); if(el) el.style.display = 'none'; });
 
+  var facultyScreens = ['s-faculty-home','s-f-lessons','s-f-students','s-f-payment','s-f-credits','s-add-credit','s-f-devotional','s-f-devot-detail'];
+  var adminScreens   = ['s-admin-home','s-a-student-att','s-a-faculty-att','s-a-tables','s-a-table-detail','s-a-leaderboard','s-a-makeup','s-a-dropped','s-a-devotional','s-a-devot-table'];
+  var recordScreens  = ['s-record-home','s-r-qr','s-r-attendance','s-r-payment','s-r-balances'];
+
   var role = typeof getRoleType === 'function' ? getRoleType(faculty['Role']) : 'faculty';
-  var navId = role === 'admin' ? 'sidebar-admin-nav'
-            : role === 'record' ? 'sidebar-record-nav'
-            : 'sidebar-faculty-nav';
+  var navId;
+  if (facultyScreens.indexOf(APP.currentScreen) !== -1) navId = 'sidebar-faculty-nav';
+  else if (adminScreens.indexOf(APP.currentScreen) !== -1) navId = 'sidebar-admin-nav';
+  else if (recordScreens.indexOf(APP.currentScreen) !== -1) navId = 'sidebar-record-nav';
+  else navId = role === 'admin' ? 'sidebar-admin-nav' : role === 'record' ? 'sidebar-record-nav' : 'sidebar-faculty-nav';
+
   var nav = document.getElementById(navId);
   if (nav && !isPortalScreen) { nav.style.display = 'flex'; nav.style.flexDirection = 'column'; }
+
+  // Dual-role helpers: show "My Table" inside the Admin sidebar only if this
+  // person has a Table Assigned, and show "Back to Admin" inside the Faculty
+  // sidebar only if this person's role resolves to admin.
+  var myTableBtn = document.getElementById('sidebar-my-table-btn');
+  if (myTableBtn) myTableBtn.style.display = (APP.currentFaculty && APP.currentFaculty['Table Assigned']) ? '' : 'none';
+  var backToAdminBtn = document.getElementById('sidebar-back-to-admin-btn');
+  if (backToAdminBtn) backToAdminBtn.style.display = (role === 'admin') ? '' : 'none';
 
   // Dropped badge
   var sbBadge = document.getElementById('sb-dropped-badge');
