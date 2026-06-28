@@ -2072,6 +2072,18 @@ function updateAdminHomeStats() {
     if (droppedCount > 0) { droppedBadge.textContent = `${droppedCount}`; droppedBadge.style.display = ''; }
     else { droppedBadge.style.display = 'none'; }
   }
+
+  // "My Table" quick-access — only for admins (Director/Consultant) who are also
+  // assigned to run a table (i.e. dual-role like "Director/Facilitator").
+  const myTableWrap  = document.getElementById('a-my-table-wrap');
+  const myTableTitle = document.getElementById('a-my-table-title');
+  const tableNo = APP.currentFaculty?.["Table Assigned"] || "";
+  if (myTableWrap) {
+    myTableWrap.style.display = tableNo ? '' : 'none';
+    if (myTableTitle && tableNo) {
+      myTableTitle.textContent = `${typeof getTableLabel === 'function' ? getTableLabel(tableNo) : 'Table ' + tableNo} — Table Guide View`;
+    }
+  }
 }
 
 // ═══════════════════════════════════════════
@@ -2093,6 +2105,14 @@ function updateFacultyHome() {
       el.textContent = `${getTableLabel(tableNo)} — ${labels[id]}`;
     }
   });
+
+  // "Back to Admin" — only for dual-role users (e.g. "Director/Facilitator")
+  // who are visiting their own table view but also have admin rights.
+  const isAdmin = typeof getRoleType === 'function' && getRoleType(f["Role"]) === 'admin';
+  const backWrap = document.getElementById('f-back-to-admin-wrap');
+  const bnavAdmin = document.getElementById('f-bnav-admin');
+  if (backWrap)  backWrap.style.display  = isAdmin ? '' : 'none';
+  if (bnavAdmin) bnavAdmin.style.display = isAdmin ? '' : 'none';
 }
 
 // ═══════════════════════════════════════════
