@@ -2072,18 +2072,6 @@ function updateAdminHomeStats() {
     if (droppedCount > 0) { droppedBadge.textContent = `${droppedCount}`; droppedBadge.style.display = ''; }
     else { droppedBadge.style.display = 'none'; }
   }
-
-  // "My Table" quick-access — only for admins (Director/Consultant) who are also
-  // assigned to run a table (i.e. dual-role like "Director/Facilitator").
-  const myTableWrap  = document.getElementById('a-my-table-wrap');
-  const myTableTitle = document.getElementById('a-my-table-title');
-  const tableNo = APP.currentFaculty?.["Table Assigned"] || "";
-  if (myTableWrap) {
-    myTableWrap.style.display = tableNo ? '' : 'none';
-    if (myTableTitle && tableNo) {
-      myTableTitle.textContent = `${typeof getTableLabel === 'function' ? getTableLabel(tableNo) : 'Table ' + tableNo} — Table Guide View`;
-    }
-  }
 }
 
 // ═══════════════════════════════════════════
@@ -2105,14 +2093,6 @@ function updateFacultyHome() {
       el.textContent = `${getTableLabel(tableNo)} — ${labels[id]}`;
     }
   });
-
-  // "Back to Admin" — only for dual-role users (e.g. "Director/Facilitator")
-  // who are visiting their own table view but also have admin rights.
-  const isAdmin = typeof getRoleType === 'function' && getRoleType(f["Role"]) === 'admin';
-  const backWrap = document.getElementById('f-back-to-admin-wrap');
-  const bnavAdmin = document.getElementById('f-bnav-admin');
-  if (backWrap)  backWrap.style.display  = isAdmin ? '' : 'none';
-  if (bnavAdmin) bnavAdmin.style.display = isAdmin ? '' : 'none';
 }
 
 // ═══════════════════════════════════════════
@@ -2319,10 +2299,25 @@ function renderBalancesSummary() {
 const ADMIN_ROLES  = ['director', 'consultant'];
 const RECORD_ROLES = ['record', 'recorder'];
 
-function getRoleType(role) {
+// Returns ALL role types that apply to this person (a person can be e.g.
+// "Consultant/Facilitator/Record" and have admin + faculty + record access).
+// Falls back to ['faculty'] if nothing matches.
+function getRoleTypes(role) {
   const r = (role || '').toLowerCase().trim();
-  if (ADMIN_ROLES.some(a  => r.includes(a))) return 'admin';
-  if (RECORD_ROLES.some(a => r.includes(a))) return 'record';
+  const types = [];
+  if (ADMIN_ROLES.some(a  => r.includes(a))) types.push('admin');
+  if (RECORD_ROLES.some(a => r.includes(a))) types.push('record');
+  // "Facilitator" (or anyone not matched above) gets faculty/facilitator access
+  if (r.includes('facilitator') || types.length === 0) types.push('faculty');
+  return types;
+}
+
+// Kept for any other call sites — returns the single highest-priority role
+// (admin > record > faculty). Prefer getRoleTypes().includes(x) for login gating.
+function getRoleType(role) {
+  const types = getRoleTypes(role);
+  if (types.includes('admin'))  return 'admin';
+  if (types.includes('record')) return 'record';
   return 'faculty';
 }
 
@@ -2364,9 +2359,13 @@ function doFacultyLogin() {
   setTimeout(() => {
     const person = findFacultyByCredentials(username, password);
     if (!person) { showLoginError('f-login-err', 'Incorrect username or password.'); setLoginLoading(btn, false); document.getElementById('f-login-pass').value = ''; return; }
-    const roleType = getRoleType(person["Role"]);
-    if (roleType === 'admin')  { showLoginError('f-login-err', 'Use the Admin portal to sign in.');  setLoginLoading(btn, false); return; }
-    if (roleType === 'record') { showLoginError('f-login-err', 'Use the Record portal to sign in.'); setLoginLoading(btn, false); return; }
+    const roleTypes = getRoleTypes(person["Role"]);
+    if (!roleTypes.includes('faculty')) {
+      const suggestion = roleTypes.includes('admin') ? 'Admin' : (roleTypes.includes('record') ? 'Record' : 'the correct');
+      showLoginError('f-login-err', `Your account does not have Facilitator access. Use the ${suggestion} portal to sign in.`);
+      setLoginLoading(btn, false);
+      return;
+    }
     APP.currentFaculty = person;
     setLoginLoading(btn, false);
     clearLoginFields('f-login-user', 'f-login-pass');
@@ -2387,8 +2386,8 @@ function doAdminLogin() {
   setTimeout(() => {
     const person = findFacultyByCredentials(username, password);
     if (!person) { showLoginError('a-login-err', 'Incorrect username or password.'); setLoginLoading(btn, false); document.getElementById('a-login-pass').value = ''; return; }
-    const roleType = getRoleType(person["Role"]);
-    if (roleType !== 'admin') { showLoginError('a-login-err', 'Your account does not have Admin access.'); setLoginLoading(btn, false); return; }
+    const roleTypes = getRoleTypes(person["Role"]);
+    if (!roleTypes.includes('admin')) { showLoginError('a-login-err', 'Your account does not have Admin access.'); setLoginLoading(btn, false); return; }
     APP.currentFaculty = person;
     setLoginLoading(btn, false);
     clearLoginFields('a-login-user', 'a-login-pass');
@@ -2408,8 +2407,8 @@ function doRecordLogin() {
   setTimeout(() => {
     const person = findFacultyByCredentials(username, password);
     if (!person) { showLoginError('r-login-err', 'Incorrect username or password.'); setLoginLoading(btn, false); document.getElementById('r-login-pass').value = ''; return; }
-    const roleType = getRoleType(person["Role"]);
-    if (roleType !== 'record') { showLoginError('r-login-err', 'Your account does not have Record access.'); setLoginLoading(btn, false); return; }
+    const roleTypes = getRoleTypes(person["Role"]);
+    if (!roleTypes.includes('record')) { showLoginError('r-login-err', 'Your account does not have Record access.'); setLoginLoading(btn, false); return; }
     APP.currentFaculty = person;
     setLoginLoading(btn, false);
     clearLoginFields('r-login-user', 'r-login-pass');
