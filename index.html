@@ -20,6 +20,13 @@
 <body>
 
 <div id="toast"></div>
+<button id="global-refresh-btn" class="is-hidden" onclick="refreshApp()" title="Refresh data" aria-label="Refresh data">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="23 4 23 10 17 10"></polyline>
+    <polyline points="1 20 1 14 7 14"></polyline>
+    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+  </svg>
+</button>
 <div id="app">
 
 <!-- DESKTOP SIDEBAR (hidden on mobile via CSS) -->
@@ -866,7 +873,7 @@
       </div>
       <!-- Mark all unscanned as absent -->
       <button id="mark-absent-btn" onclick="markUnscannedAbsent()" style="width:100%;padding:12px;background:#fdecea;color:#e53935;border:1.5px solid #e53935;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:4px">
-        📋 Mark Unscanned Students as Absent
+        📋 Mark Unscanned as Absent (Students & Faculty)
       </button>
     <div id="qr-panel-gen" style="display:none">
       <div class="card" style="padding:16px">
