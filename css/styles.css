@@ -1,4 +1,3 @@
-
 :root {
   --navy: #1a3a5c;
   --navy-light: #254e7a;
@@ -87,7 +86,27 @@ input, select, button, textarea { font-family: var(--font); }
 
 /* CARDS */
 .card { background: var(--card); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; box-shadow: var(--shadow); }
-.card-hero { border-radius: var(--radius); padding: 18px; margin-bottom: 12px; box-shadow: var(--shadow); }
+
+/* ATTENDANCE SUMMARY BAR — Present / Late / Absent totals shown above each list */
+.att-summary-bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 16px 0;
+}
+.att-summary-item {
+  border-radius: var(--radius-sm);
+  padding: 12px 6px;
+  text-align: center;
+}
+.att-summary-num { font-family: var(--font-head); font-size: 22px; font-weight: 700; }
+.att-summary-lbl { font-size: 11px; font-weight: 600; letter-spacing: 0.3px; margin-top: 2px; text-transform: uppercase; }
+.att-summary-present { background: #e8f5ee; }
+.att-summary-present .att-summary-num, .att-summary-present .att-summary-lbl { color: var(--green); }
+.att-summary-late { background: #fff5e0; }
+.att-summary-late .att-summary-num, .att-summary-late .att-summary-lbl { color: #c9960c; }
+.att-summary-absent { background: #fdecea; }
+.att-summary-absent .att-summary-num, .att-summary-absent .att-summary-lbl { color: #e53935; }
 
 /* LESSON CONTENT — mirrors the paragraph / heading / numbered-list structure
    as arranged in the Google Sheet, instead of collapsing into one blob */
@@ -123,6 +142,7 @@ input, select, button, textarea { font-family: var(--font); }
 }
 .lc-content .lc-item-body { line-height: 1.55; }
 .lc-content .lc-item-body strong { color: var(--navy); }
+.card-hero { border-radius: var(--radius); padding: 18px; margin-bottom: 12px; box-shadow: var(--shadow); }
 
 /* SECTION LABEL */
 .slabel { font-size: 11px; font-weight: 600; color: var(--text3); letter-spacing: 0.8px; text-transform: uppercase; margin: 16px 0 8px; }
