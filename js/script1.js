@@ -390,6 +390,8 @@ function refreshCurrentScreen() {
 // ═══════════════════════════════════════════
 // NAVIGATION
 // ═══════════════════════════════════════════
+const LOGIN_SCREEN_IDS = ['s-portal', 's-faculty-login', 's-admin-login', 's-record-login', 's-gs-host-login', 's-gs-buzzer-login'];
+
 function go(id) {
   const main = document.getElementById('desktop-main');
   (main ? main.querySelectorAll('.screen') : document.querySelectorAll('.screen'))
@@ -397,6 +399,9 @@ function go(id) {
   const el = document.getElementById(id);
   if (el) { el.classList.add('screen-animated'); el.classList.add('active'); }
   APP.currentScreen = id;
+
+  const refreshBtn = document.getElementById('global-refresh-btn');
+  if (refreshBtn) refreshBtn.classList.toggle('is-hidden', LOGIN_SCREEN_IDS.includes(id));
 
   if (id === 's-faculty-home')  updateFacultyHome();
   if (id === 's-f-lessons')     renderWeeks('f');
@@ -418,6 +423,22 @@ function go(id) {
   if (id === 's-r-payment')     populatePayStudentSelect();
   if (id === 's-r-balances')    { renderBalances(); renderBalancesSummary(); }
   if (id === 's-add-credit')   populateCreditStudentSelect();
+}
+
+// Manually re-syncs all data from the sheet and re-renders whatever screen
+// is currently open — no page reload, so the person stays logged in.
+async function refreshApp() {
+  const btn = document.getElementById('global-refresh-btn');
+  if (btn) { btn.disabled = true; btn.classList.add('spinning'); }
+  try {
+    await loadAllData();
+    showToast('✅ Data refreshed');
+  } catch (err) {
+    showToast('❌ Refresh failed — check connection');
+    console.error('refreshApp error:', err);
+  } finally {
+    if (btn) { btn.disabled = false; btn.classList.remove('spinning'); }
+  }
 }
 
 // ═══════════════════════════════════════════
@@ -1677,27 +1698,43 @@ async function scanFacultyQR(id) {
 // ═══════════════════════════════════════════
 async function markUnscannedAbsent() {
   const week = APP.currentWeek;
+
+  // Students
   const activeStudents = APP.students.filter(s => (s['Status'] || 'Active').toLowerCase() !== 'dropped');
-  const scannedIds = new Set(
+  const scannedStudentIds = new Set(
     APP.attendance
       .filter(a => String(a['Week No']) === String(week))
       .map(a => String(a['Student ID']))
   );
-  const unscanned = activeStudents.filter(s => !scannedIds.has(String(s['Student ID'])));
+  const unscannedStudents = activeStudents.filter(s => !scannedStudentIds.has(String(s['Student ID'])));
 
-  if (!unscanned.length) {
-    showToast('✅ All students already have attendance for Week ' + week);
+  // Faculty & Staff
+  const scannedFacultyIds = new Set(
+    APP.facultyAttendance
+      .filter(a => String(a['Week No']) === String(week))
+      .map(a => String(a['Faculty ID'] || a['FacultyID']))
+  );
+  const unscannedFaculty = APP.faculty.filter(f => !scannedFacultyIds.has(String(f['Faculty ID'])));
+
+  if (!unscannedStudents.length && !unscannedFaculty.length) {
+    showToast('✅ Everyone already has attendance for Week ' + week);
     return;
   }
 
-  const confirmed = confirm(`Mark ${unscanned.length} unscanned student(s) as ABSENT for Week ${week}?\n\nStudents:\n${unscanned.map(s => '• ' + s['Full Name']).join('\n')}`);
+  const listLines = [
+    ...unscannedStudents.map(s => '• ' + s['Full Name'] + ' (Student)'),
+    ...unscannedFaculty.map(f => '• ' + f['Full Name'] + ' (Faculty/Staff)')
+  ].join('\n');
+  const confirmed = confirm(
+    `Mark ${unscannedStudents.length} student(s) and ${unscannedFaculty.length} faculty/staff as ABSENT for Week ${week}?\n\n${listLines}`
+  );
   if (!confirmed) return;
 
   const btn = document.getElementById('mark-absent-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
 
-  let count = 0;
-  for (const student of unscanned) {
+  let studentCount = 0;
+  for (const student of unscannedStudents) {
     try {
       await apiPost({
         action:'addAttendance', studentId:student['Student ID'],
@@ -1706,11 +1743,23 @@ async function markUnscannedAbsent() {
         networkLeader:student['Network Leader']||'', tableNo:student['Table No'],
         weekNo:week, status:'Absent', remarks:'Auto-marked (unscanned)'
       });
-      count++;
-    } catch(e) { console.error('Failed to mark absent:', student['Full Name'], e); }
+      studentCount++;
+    } catch(e) { console.error('Failed to mark student absent:', student['Full Name'], e); }
   }
 
-  showToast(`✅ ${count} student(s) marked Absent for Week ${week}`);
+  let facultyCount = 0;
+  for (const faculty of unscannedFaculty) {
+    try {
+      await apiPost({
+        action:'addFacultyAttendance', facultyId:faculty['Faculty ID'],
+        facultyName:faculty['Full Name'], role:faculty['Role']||'',
+        weekNo:week, status:'Absent'
+      });
+      facultyCount++;
+    } catch(e) { console.error('Failed to mark faculty absent:', faculty['Full Name'], e); }
+  }
+
+  showToast(`✅ ${studentCount} student(s) & ${facultyCount} faculty/staff marked Absent for Week ${week}`);
   if (btn) { btn.disabled = false; btn.textContent = '📋 Mark Unscanned as Absent'; }
   await loadAllData();
 }
