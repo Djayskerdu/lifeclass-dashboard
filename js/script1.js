@@ -438,6 +438,63 @@ function renderWeeks(prefix) {
     </div>
   `).join('');
 }
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+// Turns the raw multi-line "Lesson Content" cell text (exactly as typed/arranged
+// in Google Sheets, with blank-line paragraph breaks and "1. ITEM — description"
+// style numbered points) into properly structured, styled HTML.
+function formatLessonContent(raw) {
+  if (!raw || !String(raw).trim()) {
+    return '<span style="color:var(--text3)">No content added yet.</span>';
+  }
+
+  const text = String(raw).replace(/\r\n/g, '\n').trim();
+  const blocks = text.split(/\n\s*\n/); // paragraphs = blank-line separated chunks
+  let html = '';
+
+  blocks.forEach(block => {
+    const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lines.length) return;
+
+    const isNumberedList = lines.length > 1 && lines.every(l => /^\d+\.\s*/.test(l));
+
+    if (isNumberedList) {
+      html += '<div class="lc-list">';
+      lines.forEach(line => {
+        const m = line.match(/^(\d+)\.\s*(.+)$/);
+        const num = m[1];
+        const rest = m[2];
+        const dashMatch = rest.match(/^(.*?)\s*[—–-]\s*(.+)$/);
+        const label = dashMatch ? dashMatch[1].trim() : rest.trim();
+        const desc  = dashMatch ? dashMatch[2].trim() : '';
+        html += `<div class="lc-list-item">
+          <span class="lc-num">${num}.</span>
+          <span class="lc-item-body"><strong>${escapeHtml(label)}</strong>${desc ? ' — ' + escapeHtml(desc) : ''}</span>
+        </div>`;
+      });
+      html += '</div>';
+      return;
+    }
+
+    if (lines.length === 1) {
+      const letters = lines[0].replace(/[^A-Za-z]/g, '');
+      const isHeading = letters.length > 3 && letters === letters.toUpperCase();
+      if (isHeading) {
+        html += `<div class="lc-heading">${escapeHtml(lines[0])}</div>`;
+        return;
+      }
+    }
+
+    html += `<p class="lc-para">${lines.map(escapeHtml).join('<br>')}</p>`;
+  });
+
+  return html || `<p class="lc-para">${escapeHtml(text)}</p>`;
+}
 
 function showLessonDetail(weekNo, prefix) {
   const lesson = APP.lessons.find(l => String(l["Week No"]) === String(weekNo));
@@ -454,7 +511,7 @@ function showLessonDetail(weekNo, prefix) {
     </div>
     <div class="card" style="margin-bottom:12px;padding:18px">
       <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:8px">LESSON CONTENT</div>
-      <div style="font-size:14px;color:var(--text1);line-height:1.6">${lesson["Lesson Content"] || "<span style=\'color:var(--text3)\'>No content added yet.</span>"}</div>
+     <div class="lc-content">${formatLessonContent(lesson["Lesson Content"])}</div>
     </div>
     <div style="display:flex;gap:10px">
       <div class="card" style="flex:1;padding:14px;text-align:center">
