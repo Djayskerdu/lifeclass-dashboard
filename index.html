@@ -2966,6 +2966,23 @@ function updateSidebar() {
   var backToAdminBtn = document.getElementById('sidebar-back-to-admin-btn');
   if (backToAdminBtn) backToAdminBtn.style.display = (role === 'admin') ? '' : 'none';
 
+  // Same "Back to Admin" logic, but for the mobile Table Guide screen — the
+  // menu item and bottom-nav icon existed in the HTML but nothing ever
+  // toggled them on, so mobile admins had no visible way back.
+  var backToAdminWrapMobile = document.getElementById('f-back-to-admin-wrap');
+  if (backToAdminWrapMobile) backToAdminWrapMobile.style.display = (role === 'admin') ? '' : 'none';
+  var backToAdminBnavMobile = document.getElementById('f-bnav-admin');
+  if (backToAdminBnavMobile) backToAdminBnavMobile.style.display = (role === 'admin') ? '' : 'none';
+
+  // Same helper, but for the mobile "MANAGE" menu on the admin home screen —
+  // this block existed in the HTML but was never actually wired up, so it
+  // never showed on phones.
+  var myTableWrapMobile = document.getElementById('a-my-table-wrap');
+  var assignedTable = APP.currentFaculty && APP.currentFaculty['Table Assigned'];
+  if (myTableWrapMobile) myTableWrapMobile.style.display = assignedTable ? '' : 'none';
+  var myTableTitleMobile = document.getElementById('a-my-table-title');
+  if (myTableTitleMobile && assignedTable) myTableTitleMobile.textContent = getTableLabel(assignedTable) + ' Guide View';
+
   // Dropped badge
   var sbBadge = document.getElementById('sb-dropped-badge');
   if (sbBadge) {
