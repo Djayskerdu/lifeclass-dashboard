@@ -23,8 +23,8 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 input, select, button, textarea { font-family: var(--font); }
 
 /* APP SHELL */
-#app { max-width: 430px; margin: 0 auto; min-height: 100dvh; background: var(--card); display: flex; flex-direction: column; position: relative; overflow: hidden; box-shadow: var(--shadow-lg); }
-.screen { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+#app { max-width: 430px; margin: 0 auto; height: 100dvh; min-height: 100dvh; background: var(--card); display: flex; flex-direction: column; position: relative; overflow: hidden; box-shadow: var(--shadow-lg); }
+.screen { display: none; flex-direction: column; flex: 1; overflow: hidden; min-height: 0; }
 .screen.active { display: flex; }
 
 /* Portal fills with gradient so no white gap */
