@@ -89,6 +89,41 @@ input, select, button, textarea { font-family: var(--font); }
 .card { background: var(--card); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; box-shadow: var(--shadow); }
 .card-hero { border-radius: var(--radius); padding: 18px; margin-bottom: 12px; box-shadow: var(--shadow); }
 
+/* LESSON CONTENT — mirrors the paragraph / heading / numbered-list structure
+   as arranged in the Google Sheet, instead of collapsing into one blob */
+.lc-content { font-size: 14px; color: var(--text1); }
+.lc-content .lc-para { line-height: 1.6; margin-bottom: 14px; }
+.lc-content .lc-para:last-child { margin-bottom: 0; }
+.lc-content .lc-heading {
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--navy);
+  margin: 4px 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 1.5px solid var(--border);
+}
+.lc-content .lc-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; }
+.lc-content .lc-list:last-child { margin-bottom: 0; }
+.lc-content .lc-list-item { display: flex; gap: 10px; align-items: flex-start; }
+.lc-content .lc-num {
+  flex-shrink: 0;
+  min-width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--green);
+  border-radius: 50%;
+  margin-top: 1px;
+}
+.lc-content .lc-item-body { line-height: 1.55; }
+.lc-content .lc-item-body strong { color: var(--navy); }
+
 /* SECTION LABEL */
 .slabel { font-size: 11px; font-weight: 600; color: var(--text3); letter-spacing: 0.8px; text-transform: uppercase; margin: 16px 0 8px; }
 .slabel:first-child { margin-top: 0; }
