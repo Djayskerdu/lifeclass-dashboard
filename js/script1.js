@@ -438,6 +438,7 @@ function renderWeeks(prefix) {
     </div>
   `).join('');
 }
+
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g, '&amp;')
@@ -511,7 +512,7 @@ function showLessonDetail(weekNo, prefix) {
     </div>
     <div class="card" style="margin-bottom:12px;padding:18px">
       <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:8px">LESSON CONTENT</div>
-     <div class="lc-content">${formatLessonContent(lesson["Lesson Content"])}</div>
+      <div class="lc-content">${formatLessonContent(lesson["Lesson Content"])}</div>
     </div>
     <div style="display:flex;gap:10px">
       <div class="card" style="flex:1;padding:14px;text-align:center">
@@ -990,6 +991,36 @@ async function doAddCredit() {
   }
 }
 
+// Builds the Present / Late / Absent summary bar shown at the top of an
+// attendance list. `roster` is the total enrolled count for that group
+// (students or faculty); anyone in the roster without a Present/Late record
+// for the week counts as Absent.
+function buildAttendanceSummary(weekAtt, rosterTotal) {
+  const norm = a => (a["Attendance Status"] || a["Status"] || "present").toLowerCase();
+  const present = weekAtt.filter(a => norm(a) === "present").length;
+  const late    = weekAtt.filter(a => norm(a).includes("late")).length;
+  const explicitAbsent = weekAtt.filter(a => norm(a).includes("absent")).length;
+  const unaccounted = Math.max(rosterTotal - present - late - explicitAbsent, 0);
+  const absent = explicitAbsent + unaccounted;
+
+  return `
+    <div class="att-summary-bar">
+      <div class="att-summary-item att-summary-present">
+        <div class="att-summary-num">${present}</div>
+        <div class="att-summary-lbl">Present</div>
+      </div>
+      <div class="att-summary-item att-summary-late">
+        <div class="att-summary-num">${late}</div>
+        <div class="att-summary-lbl">Late</div>
+      </div>
+      <div class="att-summary-item att-summary-absent">
+        <div class="att-summary-num">${absent}</div>
+        <div class="att-summary-lbl">Absent</div>
+      </div>
+    </div>
+  `;
+}
+
 // ═══════════════════════════════════════════
 // ADMIN — STUDENT ATTENDANCE
 // ═══════════════════════════════════════════
@@ -998,11 +1029,13 @@ function renderAStudentAtt() {
   const week = document.getElementById('a-att-week')?.value || APP.currentWeek;
   if (!el) return;
   const weekAtt = APP.attendance.filter(a => String(a["Week No"]) === String(week));
+  const summaryHtml = buildAttendanceSummary(weekAtt, APP.students.length);
+
   if (!weekAtt.length) {
-    el.innerHTML = `<p style="padding:16px;color:var(--gray)">No attendance records for Week ${week}.</p>`;
+    el.innerHTML = summaryHtml + `<p style="padding:16px;color:var(--gray)">No attendance records for Week ${week}.</p>`;
     return;
   }
-  el.innerHTML = weekAtt.map(a => `
+  el.innerHTML = summaryHtml + weekAtt.map(a => `
     <div class="row">
       <div>
         <strong>${a["Student Name"] || a["StudentName"] || "—"}</strong><br>
@@ -1902,11 +1935,13 @@ function renderRFacultyAtt() {
   const week = document.getElementById('r-fac-att-week')?.value || APP.currentWeek;
   if (!el) return;
   const weekAtt = APP.facultyAttendance.filter(a => String(a["Week No"]) === String(week));
+  const summaryHtml = buildAttendanceSummary(weekAtt, APP.faculty.length);
+
   if (!weekAtt.length) {
-    el.innerHTML = `<p style="padding:16px;color:var(--gray)">No faculty attendance for Week ${week}.</p>`;
+    el.innerHTML = summaryHtml + `<p style="padding:16px;color:var(--gray)">No faculty attendance for Week ${week}.</p>`;
     return;
   }
-  el.innerHTML = weekAtt.map(a => {
+  el.innerHTML = summaryHtml + weekAtt.map(a => {
     const name     = a["Faculty Name"] || a["FacultyName"] || "—";
     const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     const role     = a["Role"]   || "—";
@@ -1932,11 +1967,13 @@ function renderRAttendance() {
   const week = document.getElementById('r-att-week')?.value || APP.currentWeek;
   if (!el) return;
   const weekAtt = APP.attendance.filter(a => String(a["Week No"]) === String(week));
+  const summaryHtml = buildAttendanceSummary(weekAtt, APP.students.length);
+
   if (!weekAtt.length) {
-    el.innerHTML = `<p style="padding:16px;color:var(--gray)">No attendance for Week ${week}.</p>`;
+    el.innerHTML = summaryHtml + `<p style="padding:16px;color:var(--gray)">No attendance for Week ${week}.</p>`;
     return;
   }
-  el.innerHTML = weekAtt.map(a => `
+  el.innerHTML = summaryHtml + weekAtt.map(a => `
     <div class="row">
       <div>
         <strong>${a["Student Name"] || a["StudentName"] || "—"}</strong><br>
@@ -2171,11 +2208,13 @@ function renderAFacultyAtt() {
   const week = document.getElementById('a-fac-att-week')?.value || APP.currentWeek;
   if (!el) return;
   const weekAtt = APP.facultyAttendance.filter(a => String(a["Week No"]) === String(week));
+  const summaryHtml = buildAttendanceSummary(weekAtt, APP.faculty.length);
+
   if (!weekAtt.length) {
-    el.innerHTML = `<p style="padding:16px;color:var(--gray)">No faculty attendance for Week ${week}.</p>`;
+    el.innerHTML = summaryHtml + `<p style="padding:16px;color:var(--gray)">No faculty attendance for Week ${week}.</p>`;
     return;
   }
-  el.innerHTML = weekAtt.map(a => {
+  el.innerHTML = summaryHtml + weekAtt.map(a => {
     const name     = a["Faculty Name"] || a["FacultyName"] || "—";
     const initials = name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
     const role     = a["Role"]   || "—";
