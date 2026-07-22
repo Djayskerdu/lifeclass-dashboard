@@ -24,8 +24,12 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
 }
 
 async function apiGet(action, params = "") {
-  const url = `${GAS_URL}?action=${action}${params}`;
-  const res = await fetchWithTimeout(url);
+  // Cache-bust: Google Apps Script Web App GET responses can be cached by
+  // Google's edge servers, so a fresh timestamp param + no-store ensures
+  // we always get the live sheet data instead of a stale cached copy.
+  const cacheBust = `&_t=${Date.now()}`;
+  const url = `${GAS_URL}?action=${action}${params}${cacheBust}`;
+  const res = await fetchWithTimeout(url, { cache: 'no-store' });
   if (!res.ok) throw new Error(`HTTP ${res.status} for action=${action}`);
   return await res.json();
 }
@@ -130,7 +134,9 @@ function loadDevotionalsFromSheet(sheetRows) {
   (sheetRows || []).forEach(row => {
     const sid = String(row['Student ID'] || '');
     const day = Number(row['Day No']);
-    if (sid && day && (row['Completed'] === 'Yes' || row['Completed'] === true)) {
+    // Guard against bad/duplicate data in the sheet (e.g. Day No > 63)
+    // so a student's count can never exceed the actual 63-day program.
+    if (sid && day >= 1 && day <= TOTAL_DEVOTIONAL_DAYS && (row['Completed'] === 'Yes' || row['Completed'] === true)) {
       if (!APP.devotionals[sid]) APP.devotionals[sid] = new Set();
       APP.devotionals[sid].add(day);
     }
@@ -142,7 +148,9 @@ function loadActivitiesFromSheet(sheetRows) {
   (sheetRows || []).forEach(row => {
     const sid = String(row['Student ID'] || '');
     const day = Number(row['Day No']);
-    if (sid && day && (row['Completed'] === 'Yes' || row['Completed'] === true)) {
+    // Guard against bad/duplicate data in the sheet (e.g. Day No > 63)
+    // so a student's count can never exceed the actual 63-day program.
+    if (sid && day >= 1 && day <= TOTAL_DEVOTIONAL_DAYS && (row['Completed'] === 'Yes' || row['Completed'] === true)) {
       if (!APP.activities[sid]) APP.activities[sid] = new Set();
       APP.activities[sid].add(day);
     }
@@ -156,7 +164,10 @@ function loadDevotionalsLocal() {
     const key = DEVOTIONAL_KEY_PREFIX + s['Student ID'];
     try {
       const saved = localStorage.getItem(key);
-      APP.devotionals[s['Student ID']] = saved ? new Set(JSON.parse(saved)) : new Set();
+      const days = saved ? JSON.parse(saved) : [];
+      // Guard against stale on-device data with out-of-range days (same fix
+      // as the sheet loader) — old cached values here shouldn't inflate counts.
+      APP.devotionals[s['Student ID']] = new Set(days.filter(d => d >= 1 && d <= TOTAL_DEVOTIONAL_DAYS));
     } catch(e) { APP.devotionals[s['Student ID']] = new Set(); }
   });
 }
@@ -167,7 +178,8 @@ function loadActivitiesLocal() {
     const key = ACTIVITY_KEY_PREFIX + s['Student ID'];
     try {
       const saved = localStorage.getItem(key);
-      APP.activities[s['Student ID']] = saved ? new Set(JSON.parse(saved)) : new Set();
+      const days = saved ? JSON.parse(saved) : [];
+      APP.activities[s['Student ID']] = new Set(days.filter(d => d >= 1 && d <= TOTAL_DEVOTIONAL_DAYS));
     } catch(e) { APP.activities[s['Student ID']] = new Set(); }
   });
 }
@@ -197,10 +209,12 @@ async function saveActivity(studentId, day, checked) {
 }
 
 function getDevotionalCount(studentId) {
-  return APP.devotionals[studentId] ? APP.devotionals[studentId].size : 0;
+  const size = APP.devotionals[studentId] ? APP.devotionals[studentId].size : 0;
+  return Math.min(size, TOTAL_DEVOTIONAL_DAYS);
 }
 function getActivityCount(studentId) {
-  return APP.activities[studentId] ? APP.activities[studentId].size : 0;
+  const size = APP.activities[studentId] ? APP.activities[studentId].size : 0;
+  return Math.min(size, TOTAL_DEVOTIONAL_DAYS);
 }
 
 // ── Makeup Status ────────────────────────────────────────────
